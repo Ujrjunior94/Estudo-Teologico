@@ -15,9 +15,18 @@ import {
   Heart,
   Trash2,
   RefreshCw,
-  ShieldAlert
+  ShieldAlert,
+  Copy,
+  Check,
+  Share2,
+  ChevronDown,
+  ChevronUp,
+  Loader2,
+  AlertTriangle,
+  Globe
 } from 'lucide-react';
 import { formatDate } from '../utils';
+import { getDailyVerse, DAILY_VERSES, DailyVerse } from '../database/dailyVerses';
 
 interface DashboardProps {
   setActiveTab: (tab: string) => void;
@@ -34,14 +43,33 @@ export const Dashboard: React.FC<DashboardProps> = ({ setActiveTab, setSelectedB
     completedChapters: 0
   });
 
-  // Daily Verse definition
-  const dailyVerse = {
-    ref: 'João 1:1',
-    bookId: 'JOH',
-    chapter: 1,
-    text: 'No princípio era o Verbo, e o Verbo estava com Deus, e o Verbo era Deus.',
-    version: 'ARA'
-  };
+  // Dynamic Daily Verse states
+  const [verseOfDay, setVerseOfDay] = useState<DailyVerse>(getDailyVerse());
+  const [activeVersion, setActiveVersion] = useState<'ARA' | 'NVI' | 'KJV'>('ARA');
+  const [showReflection, setShowReflection] = useState(false);
+  const [isFavorited, setIsFavorited] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [aiCommentary, setAiCommentary] = useState<string | null>(null);
+  const [loadingAi, setLoadingAi] = useState(false);
+  const [aiError, setAiError] = useState<string | null>(null);
+
+  // Check if verse of the day is already favorited
+  useEffect(() => {
+    async function checkFavorite() {
+      try {
+        const favs = await dbService.getFavorites();
+        const favorited = favs.some(f => 
+          f.bookId === verseOfDay.bookId && 
+          f.chapter === verseOfDay.chapter && 
+          f.verse === verseOfDay.verse
+        );
+        setIsFavorited(favorited);
+      } catch (err) {
+        console.error('Erro ao buscar favoritos:', err);
+      }
+    }
+    checkFavorite();
+  }, [verseOfDay]);
 
   useEffect(() => {
     async function loadStats() {
@@ -74,8 +102,122 @@ export const Dashboard: React.FC<DashboardProps> = ({ setActiveTab, setSelectedB
     loadStats();
   }, [state, unlockBadge]);
 
+  const toggleFavorite = async () => {
+    try {
+      const favs = await dbService.getFavorites();
+      const existingFav = favs.find(f => 
+        f.bookId === verseOfDay.bookId && 
+        f.chapter === verseOfDay.chapter && 
+        f.verse === verseOfDay.verse
+      );
+
+      if (existingFav) {
+        await dbService.deleteFavorite(existingFav.id);
+        setIsFavorited(false);
+        setStats(prev => ({ ...prev, favoritesCount: Math.max(0, prev.favoritesCount - 1) }));
+      } else {
+        const text = activeVersion === 'ARA' 
+          ? verseOfDay.text 
+          : activeVersion === 'NVI' 
+            ? (verseOfDay.textNVI || verseOfDay.text) 
+            : (verseOfDay.textKJV || verseOfDay.text);
+            
+        await dbService.saveFavorite({
+          id: `${verseOfDay.bookId}-${verseOfDay.chapter}-${verseOfDay.verse}`,
+          bookId: verseOfDay.bookId,
+          bookName: verseOfDay.bookName,
+          chapter: verseOfDay.chapter,
+          verse: verseOfDay.verse,
+          text: text,
+          createdAt: new Date().toISOString(),
+          category: 'Versículo do Dia'
+        });
+        setIsFavorited(true);
+        setStats(prev => ({ ...prev, favoritesCount: prev.favoritesCount + 1 }));
+        addXp(5, 'Favoritou Versículo do Dia');
+        unlockBadge('primeiros_passos');
+      }
+    } catch (err) {
+      console.error('Erro ao alternar favorito:', err);
+    }
+  };
+
+  const handleCopy = () => {
+    const text = activeVersion === 'ARA' 
+      ? verseOfDay.text 
+      : activeVersion === 'NVI' 
+        ? (verseOfDay.textNVI || verseOfDay.text) 
+        : (verseOfDay.textKJV || verseOfDay.text);
+        
+    const formatted = `"${text}" — ${verseOfDay.ref} (${activeVersion}) | Estudo Teológico PRO`;
+    navigator.clipboard.writeText(formatted);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+    addXp(3, 'Copiou Palavra do Dia');
+  };
+
+  const generateAiReflection = async () => {
+    if (loadingAi) return;
+    setLoadingAi(true);
+    setAiError(null);
+    setAiCommentary(null);
+
+    const text = activeVersion === 'ARA' 
+      ? verseOfDay.text 
+      : activeVersion === 'NVI' 
+        ? (verseOfDay.textNVI || verseOfDay.text) 
+        : (verseOfDay.textKJV || verseOfDay.text);
+
+    try {
+      const response = await fetch('/api/chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          option: 'exegese',
+          messages: [
+            {
+              role: 'user',
+              content: `Por favor, faça uma exegese teológica acadêmica e reflexão devocional aprofundada para o seguinte versículo:
+Ref: ${verseOfDay.ref} (${activeVersion})
+Texto: "${text}"
+
+O tema central do dia é: ${verseOfDay.theme}.
+
+Por favor, estruture a resposta de forma limpa usando Markdown, dividindo em:
+- **Análise Exegética (Línguas Originais & Gramática)**
+- **Contexto Teológico & Histórico**
+- **Aplicação Prática e Devocional**
+
+Mantenha a resposta com profundidade de nível de seminário, mas fácil de ler.`
+            }
+          ]
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Erro ao gerar reflexão.');
+      }
+
+      const data = await response.json();
+      if (data && data.text) {
+        setAiCommentary(data.text);
+        addXp(15, 'Exegese de IA do Versículo do Dia');
+      } else {
+        throw new Error('Nenhum texto retornado do assistente.');
+      }
+    } catch (err: any) {
+      console.error('Erro na reflexão de IA:', err);
+      setAiError(err.message || 'Ocorreu um erro de conexão com o Gemini.');
+    } finally {
+      setLoadingAi(false);
+    }
+  };
+
   const readDailyVerse = () => {
-    setSelectedBibleRef({ bookId: dailyVerse.bookId, chapter: dailyVerse.chapter });
+    setSelectedBibleRef({ bookId: verseOfDay.bookId, chapter: verseOfDay.chapter });
     setActiveTab('bible');
     addXp(10, 'Leitura de Versículo do Dia');
   };
@@ -106,32 +248,280 @@ export const Dashboard: React.FC<DashboardProps> = ({ setActiveTab, setSelectedB
           {/* Verse of the Day Card */}
           <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-emerald-950 text-white rounded-2xl p-6 shadow-xl border border-emerald-500/20 relative overflow-hidden">
             <div className="absolute top-0 right-0 w-48 h-48 bg-emerald-500/10 rounded-full blur-3xl" />
-            <div className="flex items-center gap-2 mb-4">
-              <span className="p-1.5 bg-emerald-500/20 text-emerald-400 rounded-lg text-xs font-mono font-semibold uppercase tracking-wider">
-                Versículo do Dia
-              </span>
-              <Sparkles size={14} className="text-amber-400 animate-pulse" />
+            
+            {/* Header / Badges */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-5 relative z-10">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="p-1.5 bg-emerald-500/20 text-emerald-400 rounded-lg text-[10px] font-mono font-semibold uppercase tracking-wider">
+                  Versículo do Dia
+                </span>
+                <span className="p-1.5 bg-slate-800/80 text-amber-300 rounded-lg text-[10px] font-sans font-semibold border border-amber-500/20">
+                  Tema: {verseOfDay.theme}
+                </span>
+                <Sparkles size={14} className="text-amber-400 animate-pulse hidden sm:inline" />
+              </div>
+
+              {/* Translation Selector */}
+              <div className="flex bg-slate-950/60 p-1 rounded-lg border border-white/10 self-start sm:self-auto">
+                {(['ARA', 'NVI', 'KJV'] as const).map((v) => (
+                  <button
+                    key={v}
+                    onClick={() => setActiveVersion(v)}
+                    className={`px-2 py-1 rounded text-[10px] font-mono font-bold transition-all cursor-pointer ${
+                      activeVersion === v
+                        ? 'bg-emerald-500 text-white shadow'
+                        : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    {v}
+                  </button>
+                ))}
+              </div>
             </div>
             
-            <blockquote className="text-xl font-display italic font-light text-slate-100 leading-relaxed mb-6">
-              "{dailyVerse.text}"
+            {/* Verse text */}
+            <blockquote className="text-xl font-display italic font-light text-slate-100 leading-relaxed mb-6 relative z-10">
+              "{activeVersion === 'ARA' 
+                ? verseOfDay.text 
+                : activeVersion === 'NVI' 
+                  ? (verseOfDay.textNVI || verseOfDay.text) 
+                  : (verseOfDay.textKJV || verseOfDay.text)}"
             </blockquote>
 
-            <div className="flex items-center justify-between">
+            {/* Citation and Action buttons */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-t border-white/10 pt-4 relative z-10">
               <div>
                 <cite className="font-display font-semibold text-slate-200 not-italic">
-                  {dailyVerse.ref}
+                  {verseOfDay.ref}
                 </cite>
                 <span className="text-[10px] text-slate-400 font-mono ml-2">
-                  ({dailyVerse.version})
+                  ({activeVersion})
                 </span>
               </div>
-              <button 
-                onClick={readDailyVerse}
-                className="flex items-center gap-1 bg-white/10 hover:bg-white/20 text-white text-xs px-3.5 py-1.5 rounded-lg transition-all border border-white/10 font-medium"
+              
+              <div className="flex flex-wrap items-center gap-2">
+                {/* Copy Button */}
+                <button
+                  onClick={handleCopy}
+                  title="Copiar versículo com referência"
+                  className="p-2 bg-white/5 hover:bg-white/15 active:scale-95 rounded-lg border border-white/10 transition-all cursor-pointer"
+                >
+                  {copied ? (
+                    <Check size={14} className="text-emerald-400" />
+                  ) : (
+                    <Copy size={14} className="text-slate-300" />
+                  )}
+                </button>
+
+                {/* Favorite Button */}
+                <button
+                  onClick={toggleFavorite}
+                  title={isFavorited ? "Remover dos favoritos" : "Salvar nos favoritos"}
+                  className="p-2 bg-white/5 hover:bg-white/15 active:scale-95 rounded-lg border border-white/10 transition-all cursor-pointer"
+                >
+                  <Heart 
+                    size={14} 
+                    className={isFavorited ? "text-rose-500 fill-rose-500" : "text-slate-300"} 
+                  />
+                </button>
+
+                {/* Offline Reflection Button */}
+                <button
+                  onClick={() => setShowReflection(!showReflection)}
+                  className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg transition-all border font-medium cursor-pointer ${
+                    showReflection 
+                      ? 'bg-amber-500/20 text-amber-300 border-amber-500/30' 
+                      : 'bg-white/5 hover:bg-white/15 text-slate-300 border-white/10'
+                  }`}
+                >
+                  <span>Reflexão</span>
+                  {showReflection ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+                </button>
+
+                {/* AI Commentary Button */}
+                <button
+                  onClick={() => {
+                    if (aiCommentary) {
+                      setAiCommentary(null);
+                    } else {
+                      generateAiReflection();
+                    }
+                  }}
+                  className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg transition-all border font-medium cursor-pointer ${
+                    aiCommentary || loadingAi
+                      ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
+                      : 'bg-white/5 hover:bg-white/15 text-slate-300 border-white/10'
+                  }`}
+                >
+                  <Sparkles size={12} className={loadingAi ? "animate-spin text-amber-400" : "text-amber-400"} />
+                  <span>Análise IA</span>
+                  {aiCommentary ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+                </button>
+
+                {/* Study Chapter Button */}
+                <button 
+                  onClick={readDailyVerse}
+                  className="flex items-center gap-1.5 bg-emerald-500 hover:bg-emerald-600 text-white text-xs px-3 py-1.5 rounded-lg transition-all border border-emerald-400/20 font-medium active:scale-95 shadow-lg shadow-emerald-950/50 cursor-pointer"
+                >
+                  <span>Estudar Capítulo</span>
+                  <ArrowUpRight size={12} />
+                </button>
+              </div>
+            </div>
+
+            {/* Expandable Curated Reflection */}
+            {showReflection && (
+              <div className="mt-5 border-t border-white/10 pt-4 text-slate-300 relative z-10 space-y-4">
+                <div className="p-4 bg-white/5 rounded-xl border border-white/5 space-y-3">
+                  <h4 className="font-display font-bold text-amber-300 text-xs uppercase tracking-wider flex items-center gap-1.5">
+                    <BookOpen size={12} />
+                    <span>Meditação Teológica</span>
+                  </h4>
+                  <p className="text-xs text-slate-200 leading-relaxed font-light">
+                    {verseOfDay.reflection}
+                  </p>
+                </div>
+
+                <div className="p-4 bg-emerald-500/5 rounded-xl border border-emerald-500/10 space-y-2">
+                  <h4 className="font-display font-bold text-emerald-400 text-xs uppercase tracking-wider flex items-center gap-1.5">
+                    <Award size={12} />
+                    <span>Desafio de Hermenêutica Aplicada</span>
+                  </h4>
+                  <p className="text-xs text-slate-200 leading-relaxed font-light italic">
+                    "{verseOfDay.challenge}"
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Expandable AI Commentary (Gemini) */}
+            {(loadingAi || aiCommentary || aiError) && (
+              <div className="mt-5 border-t border-white/10 pt-4 text-slate-300 relative z-10 space-y-4">
+                <div className="p-5 bg-slate-950/80 rounded-xl border border-emerald-500/20 space-y-4 shadow-inner">
+                  <div className="flex items-center justify-between">
+                    <h4 className="font-display font-bold text-emerald-400 text-xs uppercase tracking-wider flex items-center gap-1.5">
+                      <Sparkles size={14} className="text-amber-400 animate-pulse" />
+                      <span>Exegese de IA (Gemini 3.5 Flash)</span>
+                    </h4>
+                    
+                    {aiCommentary && (
+                      <button
+                        onClick={() => {
+                          navigator.clipboard.writeText(aiCommentary);
+                          alert('Comentário de exegese copiado com sucesso!');
+                        }}
+                        className="text-[10px] text-slate-400 hover:text-white flex items-center gap-1 transition-colors bg-white/5 px-2 py-1 rounded cursor-pointer"
+                      >
+                        <Copy size={10} />
+                        Copiar Análise
+                      </button>
+                    )}
+                  </div>
+
+                  {loadingAi && (
+                    <div className="flex flex-col items-center justify-center py-8 space-y-3">
+                      <Loader2 size={24} className="text-emerald-400 animate-spin" />
+                      <span className="text-xs text-slate-400 font-mono text-center">
+                        Conectando ao Teólogo IA, decifrando línguas originais e contexto histórico...
+                      </span>
+                    </div>
+                  )}
+
+                  {aiError && (
+                    <div className="flex items-start gap-2.5 p-3.5 bg-rose-500/10 border border-rose-500/20 rounded-xl text-rose-300">
+                      <AlertTriangle size={16} className="shrink-0 mt-0.5 text-rose-400" />
+                      <div>
+                        <p className="text-xs font-semibold">Falha na consulta teológica</p>
+                        <p className="text-[11px] text-rose-400 mt-1">{aiError}</p>
+                      </div>
+                    </div>
+                  )}
+
+                  {aiCommentary && (
+                    <div className="text-xs text-slate-200 leading-relaxed font-light space-y-3 max-h-[300px] overflow-y-auto pr-1">
+                      {aiCommentary.split('\n\n').map((para, idx) => {
+                        // Very basic renderer for markdown bold/headings from Gemini response
+                        if (para.startsWith('###') || para.startsWith('##') || para.startsWith('#')) {
+                          return (
+                            <h5 key={idx} className="font-display font-bold text-sm mt-3 border-b border-white/5 pb-1 text-emerald-300">
+                              {para.replace(/[#*]/g, '').trim()}
+                            </h5>
+                          );
+                        }
+                        if (para.startsWith('-') || para.startsWith('*')) {
+                          return (
+                            <ul key={idx} className="list-disc list-inside pl-2 space-y-1 text-slate-300">
+                              {para.split('\n').map((item, itemIdx) => (
+                                <li key={itemIdx} className="font-sans">
+                                  {item.replace(/^[-*\s]+/, '').replace(/\*\*([^*]+)\*\*/g, '$1').trim()}
+                                </li>
+                              ))}
+                            </ul>
+                          );
+                        }
+                        
+                        // Parse bold text matches **bold**
+                        const parts = para.split(/\*\*([^*]+)\*\*/g);
+                        if (parts.length > 1) {
+                          return (
+                            <p key={idx} className="font-sans">
+                              {parts.map((part, pIdx) => pIdx % 2 === 1 ? <strong key={pIdx} className="font-semibold text-emerald-200">{part}</strong> : part)}
+                            </p>
+                          );
+                        }
+
+                        return <p key={idx} className="font-sans">{para}</p>;
+                      })}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Selector for other daily verses (Thematic Library) */}
+          <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm">
+            <div className="space-y-0.5">
+              <h4 className="text-xs font-display font-bold text-slate-800 flex items-center gap-1.5">
+                <Globe size={13} className="text-emerald-600" />
+                <span>Biblioteca Temática Diária (31 Dias)</span>
+              </h4>
+              <p className="text-[10px] text-slate-500">
+                Escolha qualquer uma das 31 lições teológicas principais do mês para estudar.
+              </p>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <select
+                value={verseOfDay.day}
+                onChange={(e) => {
+                  const dayNum = parseInt(e.target.value, 10);
+                  const selected = DAILY_VERSES.find(v => v.day === dayNum);
+                  if (selected) {
+                    setVerseOfDay(selected);
+                    setAiCommentary(null); // Reset AI commentary
+                    setShowReflection(false); // Reset reflection
+                  }
+                }}
+                className="bg-white border border-slate-200 text-xs px-2.5 py-1.5 rounded-lg text-slate-700 font-medium focus:outline-none focus:ring-1 focus:ring-emerald-500 shadow-sm cursor-pointer"
               >
-                <span>Estudar Capítulo</span>
-                <ArrowUpRight size={14} />
+                {DAILY_VERSES.map((v) => (
+                  <option key={v.day} value={v.day}>
+                    Dia {v.day}: {v.theme} ({v.ref})
+                  </option>
+                ))}
+              </select>
+              <button
+                onClick={() => {
+                  const todayDay = new Date().getDate();
+                  const selected = DAILY_VERSES.find(v => v.day === todayDay) || DAILY_VERSES[0];
+                  setVerseOfDay(selected);
+                  setAiCommentary(null);
+                  setShowReflection(false);
+                }}
+                title="Voltar para o dia de hoje"
+                className="px-2.5 py-1.5 text-[10px] bg-white hover:bg-slate-100 text-slate-700 rounded-lg font-bold font-mono transition-colors active:scale-95 border border-slate-200 shadow-sm cursor-pointer"
+              >
+                HOJE
               </button>
             </div>
           </div>

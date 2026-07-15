@@ -90,7 +90,7 @@ self.addEventListener('fetch', (event) => {
         return response;
       }).catch(() => {
         // Ultimate fallback for navigation requests (HTML page)
-        if (request.headers.get('accept').includes('text/html')) {
+        if (request.headers.get('accept')?.includes('text/html')) {
           return caches.match('/');
         }
       });

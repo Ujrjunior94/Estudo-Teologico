@@ -2,8 +2,6 @@ const CACHE_NAME = 'estudo-biblico-pro-v2';
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
-  '/src/main.tsx',
-  '/src/index.css',
   '/manifest.json'
 ];
 

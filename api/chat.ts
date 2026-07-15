@@ -58,7 +58,7 @@ Sempre forneça respostas estruturadas em Markdown, ricas em referências bíbli
 
     // Implement a simple race condition to support timeouts
     const aiPromise = ai.models.generateContent({
-      model: 'gemini-3.5-flash',
+      model: 'gemini-2.0-flash',
       contents,
       config: {
         systemInstruction,

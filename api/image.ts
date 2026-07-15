@@ -44,23 +44,34 @@ export default async function handler(req: any, res: any) {
   try {
     const finalPrompt = `Estilo de pintura teológica clássica, arte sagrada, alta definição, sem textos na imagem, focado no tema: ${prompt}`;
     
-    const response = await ai.models.generateImages({
-      model: 'imagen-3.0-generate-002',
-      prompt: finalPrompt,
+    const response = await ai.models.generateContent({
+      model: 'gemini-3.1-flash-lite-image',
+      contents: {
+        parts: [
+          {
+            text: finalPrompt
+          }
+        ]
+      },
       config: {
-        numberOfImages: 1,
-        outputMimeType: 'image/png',
-        aspectRatio: aspectRatio || '16:9'
+        imageConfig: {
+          aspectRatio: aspectRatio || '16:9'
+        }
       }
     });
 
     let base64Image = '';
-    if (response.generatedImages && response.generatedImages[0] && response.generatedImages[0].image) {
-      base64Image = response.generatedImages[0].image.imageBytes;
+    if (response.candidates?.[0]?.content?.parts) {
+      for (const part of response.candidates[0].content.parts) {
+        if (part.inlineData) {
+          base64Image = part.inlineData.data;
+          break;
+        }
+      }
     }
 
     if (!base64Image) {
-      throw new Error('Não foi possível extrair a imagem gerada da resposta do modelo Imagen.');
+      throw new Error('Não foi possível extrair a imagem gerada do modelo.');
     }
 
     return res.status(200).json({

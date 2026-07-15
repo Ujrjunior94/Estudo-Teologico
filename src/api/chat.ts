@@ -30,13 +30,30 @@ export async function sendChatMessage(
       }),
     });
 
-    const data = await response.json();
+    let data: any = {};
+    const contentType = response.headers.get('content-type');
+    const isJson = contentType && contentType.includes('application/json');
+
+    if (isJson) {
+      try {
+        data = await response.json();
+      } catch (parseErr: any) {
+        data = { error: 'Erro de Parse JSON', message: 'Falha ao decodificar a resposta JSON do servidor: ' + parseErr.message };
+      }
+    } else {
+      const rawText = await response.text();
+      // Keep it short and readable in case of giant HTML
+      const previewText = rawText.length > 200 ? rawText.slice(0, 200) + '...' : rawText;
+      data = {
+        error: `Resposta não-JSON (Status ${response.status})`,
+        message: previewText || 'O servidor retornou uma resposta vazia ou HTML.'
+      };
+    }
 
     if (!response.ok) {
-      // Create a structured error using server response or defaults
       const apiError: ApiError = {
         code: data.code || 'HTTP_ERROR_' + response.status,
-        error: data.error || 'Erro na requisição da API.',
+        error: data.error || `Erro do Servidor (${response.status})`,
         message: data.message || `Ocorreu um erro no servidor (Status ${response.status}). Por favor, tente novamente.`
       };
       throw new Error(JSON.stringify(apiError));
@@ -60,18 +77,18 @@ export async function sendChatMessage(
         isStructured = true;
       }
     } catch {
-      // Ignored: Not a structured JSON string, handle as connection/network error
+      // Ignored
     }
 
     if (isStructured) {
       throw err;
     }
 
-    // Default network failure / server offline mapping
+    // Default network failure / server offline mapping with original error message for maximum transparency
     const networkError: ApiError = {
       code: 'CONNECTION_FAILED',
       error: 'Falha na conexão.',
-      message: 'Não foi possível conectar ao servidor do Assistente Teológico. Verifique sua conexão ou tente novamente mais tarde.'
+      message: err.message || 'Não foi possível conectar ao servidor do Assistente Teológico. Verifique sua conexão ou tente novamente mais tarde.'
     };
     throw new Error(JSON.stringify(networkError));
   }

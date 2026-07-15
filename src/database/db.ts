@@ -213,5 +213,23 @@ export const dbService = {
   },
   async saveCachedChapter(cached: CachedChapter): Promise<void> {
     await runTx<void>('bible_cache', 'readwrite', (store) => store.put(cached));
+  },
+  async clearAllData(): Promise<void> {
+    const db = await openDB();
+    const stores = ['notes', 'favorites', 'highlights', 'plans', 'rewards', 'designs', 'reading_progress', 'bible_cache'];
+    return new Promise((resolve, reject) => {
+      try {
+        const tx = db.transaction(stores, 'readwrite');
+        stores.forEach(storeName => {
+          if (db.objectStoreNames.contains(storeName)) {
+            tx.objectStore(storeName).clear();
+          }
+        });
+        tx.oncomplete = () => resolve();
+        tx.onerror = (e) => reject(e);
+      } catch (err) {
+        reject(err);
+      }
+    });
   }
 };

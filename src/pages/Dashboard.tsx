@@ -12,7 +12,10 @@ import {
   Calendar,
   Sparkles,
   ArrowUpRight,
-  Heart
+  Heart,
+  Trash2,
+  RefreshCw,
+  ShieldAlert
 } from 'lucide-react';
 import { formatDate } from '../utils';
 
@@ -22,7 +25,7 @@ interface DashboardProps {
 }
 
 export const Dashboard: React.FC<DashboardProps> = ({ setActiveTab, setSelectedBibleRef }) => {
-  const { state, addXp, unlockBadge } = useRewards();
+  const { state, addXp, unlockBadge, resetRewards, factoryReset } = useRewards();
   const [stats, setStats] = useState({
     notesCount: 0,
     favoritesCount: 0,
@@ -305,6 +308,49 @@ export const Dashboard: React.FC<DashboardProps> = ({ setActiveTab, setSelectedB
                   </div>
                 );
               })}
+            </div>
+          </div>
+
+          {/* Diagnostics and factory reset card */}
+          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+            <h3 className="font-display font-bold text-slate-900 text-lg mb-3 flex items-center gap-2">
+              <ShieldAlert size={18} className="text-slate-500" />
+              <span>Ferramentas e Resets</span>
+            </h3>
+            <p className="text-xs text-slate-500 mb-4 leading-relaxed">
+              Utilitários para testes de QA e redefinição de armazenamento offline (IndexedDB e LocalStorage).
+            </p>
+            <div className="space-y-2.5">
+              <button
+                onClick={async () => {
+                  if (confirm('Tem certeza de que deseja redefinir o seu progresso teológico e XP? Suas anotações serão mantidas.')) {
+                    await resetRewards();
+                  }
+                }}
+                className="w-full flex items-center justify-between p-3 rounded-xl border border-slate-100 hover:border-amber-200 hover:bg-amber-50/10 text-left transition-all text-xs font-semibold text-amber-800"
+              >
+                <span className="flex items-center gap-2">
+                  <RefreshCw size={14} className="text-amber-500 animate-spin-slow" />
+                  Redefinir Nível & XP
+                </span>
+                <span className="text-[10px] text-amber-600 font-mono">Manter Notas</span>
+              </button>
+
+              <button
+                onClick={async () => {
+                  if (confirm('ATENÇÃO: Isso apagará permanentemente todas as suas Notas, Favoritos, Destaques, Planos de Leitura e dados de Recompensas do IndexedDB e LocalStorage. Esta ação é irreversível. Deseja prosseguir?')) {
+                    await factoryReset();
+                    window.location.reload();
+                  }
+                }}
+                className="w-full flex items-center justify-between p-3 rounded-xl border border-slate-100 hover:border-rose-200 hover:bg-rose-50/10 text-left transition-all text-xs font-semibold text-rose-800"
+              >
+                <span className="flex items-center gap-2">
+                  <Trash2 size={14} className="text-rose-500" />
+                  Reset Geral de Fábrica
+                </span>
+                <span className="text-[10px] text-rose-600 font-mono">Apagar Tudo</span>
+              </button>
             </div>
           </div>
         </div>

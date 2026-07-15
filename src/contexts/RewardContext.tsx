@@ -8,6 +8,7 @@ interface RewardContextType {
   addXp: (amount: number, reason?: string) => Promise<void>;
   unlockBadge: (badgeId: string) => Promise<void>;
   resetRewards: () => Promise<void>;
+  factoryReset: () => Promise<void>;
   recentNotification: { message: string; type: 'xp' | 'badge' } | null;
   clearNotification: () => void;
 }
@@ -148,6 +149,26 @@ export const RewardProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     });
   };
 
+  const factoryReset = async () => {
+    // 1. Clear all IndexedDB stores
+    await dbService.clearAllData();
+    // 2. Clear all local storage
+    localStorage.clear();
+    // 3. Reset state
+    const fresh: RewardState = {
+      xp: 0,
+      level: 1,
+      dailyStreak: 0,
+      badges: [],
+      achievements: []
+    };
+    setState(fresh);
+    setRecentNotification({
+      message: 'Sistema redefinido com sucesso! Todos os dados locais foram apagados.',
+      type: 'badge'
+    });
+  };
+
   const clearNotification = () => setRecentNotification(null);
 
   return (
@@ -157,6 +178,7 @@ export const RewardProvider: React.FC<{ children: ReactNode }> = ({ children }) 
         addXp,
         unlockBadge,
         resetRewards,
+        factoryReset,
         recentNotification,
         clearNotification
       }}

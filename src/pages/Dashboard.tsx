@@ -196,12 +196,17 @@ Mantenha a resposta com profundidade de nível de seminário, mas fácil de ler.
         })
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Erro ao gerar reflexão.');
+      let data;
+      try {
+        data = await response.json();
+      } catch {
+        throw new Error(`Erro inesperado no servidor (Status ${response.status}).`);
       }
 
-      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.message || data.error || 'Erro ao gerar reflexão.');
+      }
+
       if (data && data.text) {
         setAiCommentary(data.text);
         addXp(15, 'Exegese de IA do Versículo do Dia');

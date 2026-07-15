@@ -55,12 +55,18 @@ export const Dictionary: React.FC = () => {
     try {
       const response = await fetch(`/api/dictionary?word=${encodeURIComponent(wordToExpand)}`);
       
-      if (!response.ok) {
-        const errData = await response.json();
-        throw new Error(errData.message || 'Falha ao processar termo com Inteligência Artificial.');
+      let data;
+      try {
+        data = await response.json();
+      } catch {
+        throw new Error(`Erro inesperado no servidor (Status ${response.status}).`);
       }
 
-      const expandedTerm: TheologicalTerm = await response.json();
+      if (!response.ok) {
+        throw new Error(data.message || data.error || 'Falha ao processar termo com Inteligência Artificial.');
+      }
+
+      const expandedTerm: TheologicalTerm = data;
 
       // Temporarily add to the state list
       setTerms(prev => {

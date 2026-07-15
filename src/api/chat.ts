@@ -53,13 +53,18 @@ export async function sendChatMessage(
     return data.text;
   } catch (err: any) {
     // If it's already a structured JSON string we threw above, rethrow it
+    let isStructured = false;
     try {
       const parsed = JSON.parse(err.message);
       if (parsed && parsed.code && parsed.error && parsed.message) {
-        throw err;
+        isStructured = true;
       }
     } catch {
       // Ignored: Not a structured JSON string, handle as connection/network error
+    }
+
+    if (isStructured) {
+      throw err;
     }
 
     // Default network failure / server offline mapping

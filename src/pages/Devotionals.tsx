@@ -190,7 +190,12 @@ Siga RIGOROSAMENTE esta estrutura em Markdown:
       }
     } catch (err: any) {
       console.error(err);
-      setCustomError('Falha ao conectar com o Gemini no servidor. Verifique a chave de API nos Secrets.');
+      try {
+        const parsedErr = JSON.parse(err.message);
+        setCustomError(`Erro de IA: ${parsedErr.error || parsedErr.message || err.message}`);
+      } catch {
+        setCustomError('Falha ao conectar com o Gemini no servidor. Verifique a chave de API nos Secrets.');
+      }
     } finally {
       setIsGenerating(false);
     }

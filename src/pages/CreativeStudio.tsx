@@ -73,10 +73,15 @@ export const CreativeStudio: React.FC = () => {
         })
       });
 
-      const data = await response.json();
+      let data;
+      try {
+        data = await response.json();
+      } catch {
+        throw new Error(`Erro inesperado no servidor (Status ${response.status}).`);
+      }
 
       if (!response.ok) {
-        throw new Error(data.message || 'Falha ao processar imagem de fundo via IA.');
+        throw new Error(data.message || data.error || 'Falha ao processar imagem de fundo via IA.');
       }
 
       setBgImage(data.imageUrl);

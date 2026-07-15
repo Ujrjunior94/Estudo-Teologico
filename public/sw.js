@@ -1,4 +1,4 @@
-const CACHE_NAME = 'estudo-biblico-pro-v2';
+const CACHE_NAME = 'estudo-biblico-pro-v3';
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
@@ -35,6 +35,24 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
+
+  // Bypass service worker cache entirely in development mode to prevent stale chunk/module conflicts
+  const isDev = 
+    url.hostname === 'localhost' || 
+    url.hostname === '127.0.0.1' || 
+    url.hostname.includes('-dev-') ||
+    url.pathname.startsWith('/src/') ||
+    url.pathname.includes('/node_modules/') ||
+    url.pathname.includes('/.vite/') ||
+    url.pathname.includes('/@vite/') ||
+    url.pathname.includes('/@id/') ||
+    url.pathname.includes('/@fs/');
+
+  if (isDev) {
+    // Direct network pass-through for development assets
+    event.respondWith(fetch(request));
+    return;
+  }
 
   // If it's a call to the local dictionary or verse API, use Network-First, falling back to cache
   if (url.pathname.startsWith('/api/')) {

@@ -13,6 +13,7 @@ import { CreativeStudio } from './pages/CreativeStudio';
 import { SavedItems } from './pages/SavedItems';
 import { Plans } from './pages/Plans';
 import { Devotionals } from './pages/Devotionals';
+import { Prayers } from './pages/Prayers';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<string>('dashboard');
@@ -91,6 +92,8 @@ export default function App() {
             setSelectedBibleRef={setSelectedBibleRef} 
           />
         );
+      case 'prayers':
+        return <Prayers />;
       default:
         return <Dashboard setActiveTab={setActiveTab} setSelectedBibleRef={setSelectedBibleRef} />;
     }

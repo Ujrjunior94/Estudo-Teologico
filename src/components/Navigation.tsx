@@ -12,7 +12,8 @@ import {
   LogOut,
   Award,
   BookMarked,
-  Heart
+  Heart,
+  HeartHandshake
 } from 'lucide-react';
 import { useRewards } from '../contexts/RewardContext';
 
@@ -32,7 +33,8 @@ export const Navigation: React.FC<NavigationProps> = ({ activeTab, setActiveTab 
     { id: 'ai', label: 'Teólogo IA', icon: Sparkles },
     { id: 'creative', label: 'Estúdio', icon: Palette },
     { id: 'saved', label: 'Estudos', icon: FolderHeart },
-    { id: 'plans', label: 'Planos', icon: Compass }
+    { id: 'plans', label: 'Planos', icon: Compass },
+    { id: 'prayers', label: 'Orações', icon: HeartHandshake }
   ];
 
   return (
@@ -110,7 +112,7 @@ export const Navigation: React.FC<NavigationProps> = ({ activeTab, setActiveTab 
       </aside>
 
       {/* Bottom Tab Bar for Mobile */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-slate-900 border-t border-slate-800 flex justify-around items-center py-2 px-1 z-50">
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-slate-900 border-t border-slate-800 flex items-center py-2 px-3 z-50 overflow-x-auto gap-4 scrollbar-none justify-between">
         {navItems.map((item) => {
           const Icon = item.icon;
           const isActive = activeTab === item.id;
@@ -118,7 +120,7 @@ export const Navigation: React.FC<NavigationProps> = ({ activeTab, setActiveTab 
             <button
               key={item.id}
               onClick={() => setActiveTab(item.id)}
-              className={`flex flex-col items-center gap-1 py-1 px-2 rounded-md transition-all ${
+              className={`flex-shrink-0 flex flex-col items-center gap-1 py-1 px-2 rounded-md transition-all ${
                 isActive ? 'text-emerald-400 bg-emerald-500/5' : 'text-slate-400'
               }`}
             >

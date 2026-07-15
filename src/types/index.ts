@@ -131,3 +131,35 @@ export interface CachedChapter {
   verses: { verse: number; text: string }[];
   cachedAt: string;
 }
+
+export interface Bookmark {
+  id: string; // e.g., 'GEN-1-ARA' or random
+  bookId: string;
+  bookName: string;
+  chapter: number;
+  version: 'ARA' | 'NVI' | 'KJV';
+  scrollPosition: number; // percentage or scrollTop
+  highlights: Highlight[]; // highlights stored for this book/chapter at bookmark time
+  createdAt: string;
+  label?: string; // custom note/label for the bookmark
+}
+
+export interface PrayerLog {
+  id: string;
+  note: string;
+  createdAt: string;
+}
+
+export interface PrayerRequest {
+  id: string;
+  title: string;
+  request: string;
+  requesterName?: string;
+  category: 'Saúde' | 'Família' | 'Finanças' | 'Espiritual' | 'Trabalho' | 'Outro';
+  status: 'Pendente' | 'Respondido' | 'Agradecimento';
+  answer?: string;
+  createdAt: string;
+  updatedAt: string;
+  logs: PrayerLog[];
+}
+

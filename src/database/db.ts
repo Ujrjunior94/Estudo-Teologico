@@ -1,7 +1,7 @@
-import { Note, Favorite, Highlight, ReadingPlan, RewardState, CreativeDesign, ReadingProgress, CachedChapter } from '../types';
+import { Note, Favorite, Highlight, ReadingPlan, RewardState, CreativeDesign, ReadingProgress, CachedChapter, Bookmark, PrayerRequest } from '../types';
 
 const DB_NAME = 'EstudoBiblicoTeologicoPRO_DB';
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 
 export function openDB(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
@@ -36,6 +36,12 @@ export function openDB(): Promise<IDBDatabase> {
       }
       if (!db.objectStoreNames.contains('bible_cache')) {
         db.createObjectStore('bible_cache', { keyPath: 'id' });
+      }
+      if (!db.objectStoreNames.contains('bookmarks')) {
+        db.createObjectStore('bookmarks', { keyPath: 'id' });
+      }
+      if (!db.objectStoreNames.contains('prayers')) {
+        db.createObjectStore('prayers', { keyPath: 'id' });
       }
     };
   });
@@ -214,9 +220,32 @@ export const dbService = {
   async saveCachedChapter(cached: CachedChapter): Promise<void> {
     await runTx<void>('bible_cache', 'readwrite', (store) => store.put(cached));
   },
+  
+  // BOOKMARKS CRUD
+  async getBookmarks(): Promise<Bookmark[]> {
+    return runTx<Bookmark[]>('bookmarks', 'readonly', (store) => store.getAll());
+  },
+  async saveBookmark(bookmark: Bookmark): Promise<void> {
+    await runTx<void>('bookmarks', 'readwrite', (store) => store.put(bookmark));
+  },
+  async deleteBookmark(id: string): Promise<void> {
+    await runTx<void>('bookmarks', 'readwrite', (store) => store.delete(id));
+  },
+
+  // PRAYERS CRUD
+  async getPrayers(): Promise<PrayerRequest[]> {
+    return runTx<PrayerRequest[]>('prayers', 'readonly', (store) => store.getAll());
+  },
+  async savePrayer(prayer: PrayerRequest): Promise<void> {
+    await runTx<void>('prayers', 'readwrite', (store) => store.put(prayer));
+  },
+  async deletePrayer(id: string): Promise<void> {
+    await runTx<void>('prayers', 'readwrite', (store) => store.delete(id));
+  },
+
   async clearAllData(): Promise<void> {
     const db = await openDB();
-    const stores = ['notes', 'favorites', 'highlights', 'plans', 'rewards', 'designs', 'reading_progress', 'bible_cache'];
+    const stores = ['notes', 'favorites', 'highlights', 'plans', 'rewards', 'designs', 'reading_progress', 'bible_cache', 'bookmarks', 'prayers'];
     return new Promise((resolve, reject) => {
       try {
         const tx = db.transaction(stores, 'readwrite');

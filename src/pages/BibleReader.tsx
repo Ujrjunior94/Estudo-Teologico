@@ -4,7 +4,7 @@ import { HIGHLIGHT_COLORS, SYSTEM_BADGES } from '../constants';
 import { dbService } from '../database/db';
 import { bibleService } from '../services/bibleService';
 import { useRewards } from '../contexts/RewardContext';
-import { Note, Favorite, Highlight } from '../types';
+import { Note, Favorite, Highlight, Bookmark as BibleBookmark } from '../types';
 import { 
   Book, 
   Bookmark, 
@@ -62,6 +62,100 @@ export const BibleReader: React.FC<BibleReaderProps> = ({ selectedBibleRef, setS
   // Audio / TTS state
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
   const speechUtteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
+
+  // Bookmark state & methods
+  const [bookmarks, setBookmarks] = useState<BibleBookmark[]>([]);
+  const [showBookmarkModal, setShowBookmarkModal] = useState(false);
+  const [bookmarkLabel, setBookmarkLabel] = useState('');
+
+  const loadBookmarks = async () => {
+    try {
+      const stored = await dbService.getBookmarks();
+      setBookmarks(stored.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
+    } catch (err) {
+      console.error('Error loading bookmarks:', err);
+    }
+  };
+
+  useEffect(() => {
+    loadBookmarks();
+  }, []);
+
+  const handleSaveBookmark = async () => {
+    const mainEl = document.querySelector('main');
+    const currentScroll = mainEl ? mainEl.scrollTop : 0;
+
+    // Compile chapter highlights
+    const chapterHighlights: Highlight[] = Object.entries(highlights).map(([vIndex, color]) => ({
+      id: `${activeBook.id}-${activeChapter}-${vIndex}`,
+      bookId: activeBook.id,
+      chapter: activeChapter,
+      verse: parseInt(vIndex, 10),
+      color: color as string,
+      createdAt: new Date().toISOString()
+    }));
+
+    const newBookmark: BibleBookmark = {
+      id: `bookmark_${activeBook.id}_${activeChapter}_${activeVersion}_${Date.now()}`,
+      bookId: activeBook.id,
+      bookName: activeBook.name,
+      chapter: activeChapter,
+      version: activeVersion,
+      scrollPosition: currentScroll,
+      highlights: chapterHighlights,
+      createdAt: new Date().toISOString(),
+      label: bookmarkLabel.trim() || undefined
+    };
+
+    try {
+      await dbService.saveBookmark(newBookmark);
+      setBookmarks(prev => [newBookmark, ...prev]);
+      setShowBookmarkModal(false);
+      setBookmarkLabel('');
+      addXp(15, 'Marcou posição e destaques');
+    } catch (err) {
+      console.error('Error saving bookmark:', err);
+    }
+  };
+
+  const handleDeleteBookmark = async (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      await dbService.deleteBookmark(id);
+      setBookmarks(prev => prev.filter(b => b.id !== id));
+    } catch (err) {
+      console.error('Error deleting bookmark:', err);
+    }
+  };
+
+  const handleApplyBookmark = async (b: BibleBookmark) => {
+    const book = BIBLE_BOOKS.find(item => item.id === b.bookId);
+    if (!book) return;
+
+    setActiveBook(book);
+    setActiveChapter(b.chapter);
+    setActiveVersion(b.version);
+
+    // Apply specific highlights saved in the bookmark to current state and IndexedDB
+    if (b.highlights && b.highlights.length > 0) {
+      const targetHls: Record<string, string> = {};
+      for (const hl of b.highlights) {
+        await dbService.saveHighlight(hl);
+        targetHls[hl.verse] = hl.color;
+      }
+      setHighlights(targetHls);
+    }
+
+    // Scroll container to saved height
+    setTimeout(() => {
+      const mainEl = document.querySelector('main');
+      if (mainEl) {
+        mainEl.scrollTo({ top: b.scrollPosition, behavior: 'smooth' });
+      }
+    }, 450);
+
+    addXp(10, 'Restaurou posição e destaques');
+  };
 
   // Sync with selectedBibleRef if set from Dashboard
   useEffect(() => {
@@ -457,116 +551,193 @@ export const BibleReader: React.FC<BibleReaderProps> = ({ selectedBibleRef, setS
           >
             {isPlayingAudio ? <VolumeX size={16} /> : <Volume2 size={16} />}
           </button>
+
+          {/* Bookmark Button */}
+          <button 
+            onClick={() => setShowBookmarkModal(true)}
+            title="Marcar posição atual de leitura e destaques"
+            className="flex items-center gap-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 p-2.5 rounded-lg transition-all border border-slate-200 text-xs font-semibold"
+          >
+            <Bookmark size={16} className="text-emerald-600" />
+            <span className="hidden sm:inline">Marcar Posição</span>
+          </button>
         </div>
       </div>
 
-      {/* Main Content viewport */}
-      {isSearching ? (
-        // Search Results Panel
-        <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm min-h-[400px]">
-          <h3 className="font-display font-bold text-slate-900 text-lg mb-4">
-            Resultados de Busca para "{searchQuery}" ({searchResults.length})
-          </h3>
-          
-          {searchResults.length === 0 ? (
-            <div className="text-center py-12 text-slate-400 text-sm">
-              Nenhuma ocorrência encontrada offline para esta expressão.
+      {/* Main Content responsive grid layout */}
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 items-start">
+        
+        {/* Left column: Bible Text / Search results */}
+        <div className="lg:col-span-3 space-y-6">
+          {isSearching ? (
+            // Search Results Panel
+            <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm min-h-[400px]">
+              <h3 className="font-display font-bold text-slate-900 text-lg mb-4">
+                Resultados de Busca para "{searchQuery}" ({searchResults.length})
+              </h3>
+              
+              {searchResults.length === 0 ? (
+                <div className="text-center py-12 text-slate-400 text-sm">
+                  Nenhuma ocorrência encontrada offline para esta expressão.
+                </div>
+              ) : (
+                <div className="space-y-4 max-h-[500px] overflow-y-auto pr-2">
+                  {searchResults.map((result, idx) => (
+                    <div 
+                      key={idx} 
+                      onClick={() => {
+                        const b = BIBLE_BOOKS.find(book => book.id === result.bookId);
+                        if (b) {
+                          setActiveBook(b);
+                          setActiveChapter(result.chapter);
+                          setIsSearching(false);
+                        }
+                      }}
+                      className="p-4 rounded-xl border border-slate-100 hover:border-emerald-200 hover:bg-emerald-50/5 cursor-pointer transition-all"
+                    >
+                      <p className="text-xs font-mono font-bold text-emerald-600 mb-1">
+                        {result.bookName} {result.chapter}:{result.verse} ({activeVersion})
+                      </p>
+                      <p className="text-sm text-slate-700 font-serif italic">
+                        "{result.text}"
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           ) : (
-            <div className="space-y-4 max-h-[500px] overflow-y-auto pr-2">
-              {searchResults.map((result, idx) => (
-                <div 
-                  key={idx} 
-                  onClick={() => {
-                    const b = BIBLE_BOOKS.find(book => book.id === result.bookId);
-                    if (b) {
-                      setActiveBook(b);
-                      setActiveChapter(result.chapter);
-                      setIsSearching(false);
-                    }
-                  }}
-                  className="p-4 rounded-xl border border-slate-100 hover:border-emerald-200 hover:bg-emerald-50/5 cursor-pointer transition-all"
+            // Bible Chapter Reader Surface
+            <div className="bg-white rounded-2xl border border-slate-200 p-8 shadow-sm relative min-h-[500px]">
+              <div className="text-center mb-8">
+                <h1 className="font-display font-black text-3xl text-slate-900">
+                  {activeBook.name}
+                </h1>
+                <p className="font-mono text-xs text-slate-400 mt-1 uppercase tracking-widest font-bold">
+                  Capítulo {activeChapter} — {activeBook.category}
+                </p>
+              </div>
+
+              {/* Verses Container */}
+              <div className="space-y-6 text-slate-800 leading-relaxed font-serif text-lg pb-16">
+                {verses.map((v) => {
+                  const isSelected = selectedVerse === v.verse;
+                  const hlColor = highlights[v.verse];
+                  const hasNotes = notes[v.verse] && notes[v.verse].length > 0;
+                  const isFav = favorites[v.verse];
+
+                  return (
+                    <p 
+                      key={v.verse}
+                      onClick={() => setSelectedVerse(isSelected ? null : v.verse)}
+                      style={{ backgroundColor: hlColor ? `${hlColor}50` : undefined }}
+                      className={`relative p-2 rounded-lg cursor-pointer transition-all hover:bg-slate-50 select-none ${
+                        isSelected ? 'ring-2 ring-emerald-500 bg-emerald-50/20' : ''
+                      }`}
+                    >
+                      {/* Indicators for Notes / Favorites */}
+                      <span className="absolute -left-3 top-3 flex gap-0.5">
+                        {isFav && <span className="w-1.5 h-1.5 bg-rose-500 rounded-full" title="Favoritado" />}
+                        {hasNotes && <span className="w-1.5 h-1.5 bg-blue-500 rounded-full" title="Possui notas" />}
+                      </span>
+
+                      <sup className="font-mono text-xs font-bold text-emerald-600 mr-2 select-none">
+                        {v.verse}
+                      </sup>
+                      
+                      <span className="font-serif font-light text-slate-800 tracking-wide">
+                        {v.text}
+                      </span>
+                    </p>
+                  );
+                })}
+              </div>
+
+              {/* Quick chapter switches */}
+              <div className="flex justify-between items-center border-t border-slate-100 pt-6 mt-8">
+                <button 
+                  onClick={prevChapter}
+                  className="flex items-center gap-1.5 bg-slate-100 hover:bg-slate-200 px-4 py-2 rounded-lg font-medium text-slate-700 text-sm transition-all"
                 >
-                  <p className="text-xs font-mono font-bold text-emerald-600 mb-1">
-                    {result.bookName} {result.chapter}:{result.verse} ({activeVersion})
-                  </p>
-                  <p className="text-sm text-slate-700 font-serif italic">
-                    "{result.text}"
-                  </p>
+                  <ChevronLeft size={16} />
+                  <span>Anterior</span>
+                </button>
+                <span className="text-xs font-mono text-slate-400">
+                  {activeBook.abbrev} {activeChapter}
+                </span>
+                <button 
+                  onClick={nextChapter}
+                  className="flex items-center gap-1.5 bg-slate-100 hover:bg-slate-200 px-4 py-2 rounded-lg font-medium text-slate-700 text-sm transition-all"
+                >
+                  <span>Próximo</span>
+                  <ChevronRight size={16} />
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Right column: Bookmarks Sidebar */}
+        <div className="lg:col-span-1 bg-white rounded-2xl border border-slate-200 p-5 shadow-sm space-y-4">
+          <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
+            <Bookmark size={18} className="text-emerald-600" />
+            <h3 className="font-display font-bold text-slate-900 text-sm">
+              Marcadores Salvos
+            </h3>
+          </div>
+
+          {bookmarks.length === 0 ? (
+            <div className="text-center py-8 text-slate-400 text-xs space-y-2 leading-relaxed">
+              <p>Nenhum marcador de posição salvo neste dispositivo.</p>
+              <p className="text-[10px] text-slate-400/70">Use o botão "Marcar Posição" no topo para registrar onde parou e as cores marcadas!</p>
+            </div>
+          ) : (
+            <div className="space-y-3 max-h-[500px] overflow-y-auto pr-1">
+              {bookmarks.map((b) => (
+                <div 
+                  key={b.id}
+                  onClick={() => handleApplyBookmark(b)}
+                  className="p-3 bg-slate-50 border border-slate-200 hover:border-emerald-300 hover:bg-emerald-50/10 rounded-xl cursor-pointer transition-all relative group animate-fade-in"
+                >
+                  <div className="flex justify-between items-start gap-1">
+                    <span className="text-xs font-mono font-bold text-emerald-700">
+                      {b.bookName} {b.chapter} ({b.version})
+                    </span>
+                    <button 
+                      onClick={(e) => handleDeleteBookmark(b.id, e)}
+                      className="text-slate-300 hover:text-rose-600 transition-all p-0.5 rounded"
+                      title="Excluir marcador"
+                    >
+                      <X size={13} />
+                    </button>
+                  </div>
+
+                  {b.label && (
+                    <p className="text-xs font-semibold text-slate-800 mt-1">
+                      {b.label}
+                    </p>
+                  )}
+
+                  {b.highlights && b.highlights.length > 0 && (
+                    <div className="mt-1 flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                      <span className="text-[9px] font-mono text-slate-400">
+                        {b.highlights.length} {b.highlights.length === 1 ? 'destaque salvo' : 'destaques salvos'}
+                      </span>
+                    </div>
+                  )}
+
+                  <div className="mt-2.5 flex items-center justify-between text-[9px] font-mono text-slate-400 border-t border-slate-100 pt-1.5">
+                    <span>Posição Salva</span>
+                    <span className="bg-emerald-100 text-emerald-800 font-bold px-1 py-0.5 rounded">IR ➔</span>
+                  </div>
                 </div>
               ))}
             </div>
           )}
         </div>
-      ) : (
-        // Bible Chapter Reader Surface
-        <div className="bg-white rounded-2xl border border-slate-200 p-8 shadow-sm relative min-h-[500px]">
-          <div className="text-center mb-8">
-            <h1 className="font-display font-black text-3xl text-slate-900">
-              {activeBook.name}
-            </h1>
-            <p className="font-mono text-xs text-slate-400 mt-1 uppercase tracking-widest font-bold">
-              Capítulo {activeChapter} — {activeBook.category}
-            </p>
-          </div>
 
-          {/* Verses Container */}
-          <div className="space-y-6 text-slate-800 leading-relaxed font-serif text-lg pb-16">
-            {verses.map((v) => {
-              const isSelected = selectedVerse === v.verse;
-              const hlColor = highlights[v.verse];
-              const hasNotes = notes[v.verse] && notes[v.verse].length > 0;
-              const isFav = favorites[v.verse];
-
-              return (
-                <p 
-                  key={v.verse}
-                  onClick={() => setSelectedVerse(isSelected ? null : v.verse)}
-                  style={{ backgroundColor: hlColor ? `${hlColor}50` : undefined }}
-                  className={`relative p-2 rounded-lg cursor-pointer transition-all hover:bg-slate-50 select-none ${
-                    isSelected ? 'ring-2 ring-emerald-500 bg-emerald-50/20' : ''
-                  }`}
-                >
-                  {/* Indicators for Notes / Favorites */}
-                  <span className="absolute -left-3 top-3 flex gap-0.5">
-                    {isFav && <span className="w-1.5 h-1.5 bg-rose-500 rounded-full" title="Favoritado" />}
-                    {hasNotes && <span className="w-1.5 h-1.5 bg-blue-500 rounded-full" title="Possui notas" />}
-                  </span>
-
-                  <sup className="font-mono text-xs font-bold text-emerald-600 mr-2 select-none">
-                    {v.verse}
-                  </sup>
-                  
-                  <span className="font-serif font-light text-slate-800 tracking-wide">
-                    {v.text}
-                  </span>
-                </p>
-              );
-            })}
-          </div>
-
-          {/* Quick chapter switches */}
-          <div className="flex justify-between items-center border-t border-slate-100 pt-6 mt-8">
-            <button 
-              onClick={prevChapter}
-              className="flex items-center gap-1.5 bg-slate-100 hover:bg-slate-200 px-4 py-2 rounded-lg font-medium text-slate-700 text-sm transition-all"
-            >
-              <ChevronLeft size={16} />
-              <span>Anterior</span>
-            </button>
-            <span className="text-xs font-mono text-slate-400">
-              {activeBook.abbrev} {activeChapter}
-            </span>
-            <button 
-              onClick={nextChapter}
-              className="flex items-center gap-1.5 bg-slate-100 hover:bg-slate-200 px-4 py-2 rounded-lg font-medium text-slate-700 text-sm transition-all"
-            >
-              <span>Próximo</span>
-              <ChevronRight size={16} />
-            </button>
-          </div>
-        </div>
-      )}
+      </div>
 
       {/* Floating Verse Action Controls */}
       {selectedVerse !== null && (
@@ -701,6 +872,55 @@ export const BibleReader: React.FC<BibleReaderProps> = ({ selectedBibleRef, setS
                   className="px-5 py-2 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 text-sm font-semibold shadow-md transition-all"
                 >
                   Salvar Estudo
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Bookmark Save Modal */}
+      {showBookmarkModal && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl border border-slate-200 p-6 w-full max-w-md shadow-2xl animate-scale-in">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="font-display font-bold text-slate-900 text-lg flex items-center gap-2">
+                <Bookmark size={18} className="text-emerald-600" />
+                <span>Salvar Marcador de Leitura</span>
+              </h3>
+              <button onClick={() => setShowBookmarkModal(false)} className="text-slate-400 hover:text-slate-600">
+                <X size={20} />
+              </button>
+            </div>
+
+            <p className="text-xs text-slate-500 mb-4 leading-relaxed">
+              Isso salvará sua posição exata de leitura em <strong>{activeBook.name} {activeChapter}</strong>, incluindo quaisquer trechos destacados neste capítulo para que você retorne facilmente mais tarde.
+            </p>
+
+            <div className="space-y-4">
+              <div>
+                <label className="text-xs font-mono text-slate-400 uppercase font-bold block mb-1">Rótulo / Nota Curta (Opcional)</label>
+                <input 
+                  type="text" 
+                  value={bookmarkLabel}
+                  onChange={(e) => setBookmarkLabel(e.target.value)}
+                  placeholder="Ex: Leitura matinal, Estudo de terça, etc."
+                  className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                />
+              </div>
+
+              <div className="flex justify-end gap-3 pt-2">
+                <button 
+                  onClick={() => setShowBookmarkModal(false)}
+                  className="px-4 py-2 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 text-sm font-medium transition-all"
+                >
+                  Cancelar
+                </button>
+                <button 
+                  onClick={handleSaveBookmark}
+                  className="px-5 py-2 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 text-sm font-semibold shadow-md transition-all"
+                >
+                  Confirmar e Salvar (+15 XP)
                 </button>
               </div>
             </div>

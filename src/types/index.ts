@@ -128,8 +128,9 @@ export interface CachedChapter {
   bookId: string;
   chapter: number;
   version: string;
-  verses: { verse: number; text: string }[];
+  verses: { verse: number; text: string; source?: 'preloaded' | 'api' | 'synthetic' }[];
   cachedAt: string;
+  source?: 'preloaded' | 'api' | 'synthetic';
 }
 
 export interface Bookmark {

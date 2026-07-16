@@ -1,10 +1,11 @@
 import { dbService } from '../database/db';
-import { getChapterVersesCount, getGeneratedVerseText } from '../database/bibleMetadata';
+import { getChapterVersesCount, getGeneratedVerseText, AUTHENTIC_PASSAGES } from '../database/bibleMetadata';
 import { CachedChapter } from '../types';
 
 export interface VerseItem {
   verse: number;
   text: string;
+  source?: 'preloaded' | 'api' | 'synthetic';
 }
 
 /**
@@ -19,28 +20,60 @@ export const bibleService = {
   async fetchChapter(
     bookId: string,
     chapter: number,
-    version: 'ARA' | 'NVI' | 'KJV' = 'ARA'
+    version: 'ARA' | 'NVI' | 'KJV' = 'ARA',
+    forceRefresh: boolean = false
   ): Promise<VerseItem[]> {
     const cacheKey = `${bookId}-${chapter}-${version}`;
 
-    // Try fetching from the server API if network is available
+    // 1. Check IndexedDB cache first (unless forced to refresh)
+    const expectedVerses = getChapterVersesCount(bookId, chapter);
+    if (!forceRefresh) {
+      try {
+        const cached = await dbService.getCachedChapter(bookId, chapter, version);
+        if (cached && cached.verses && cached.verses.length > 0) {
+          // AUDIT INTEGRITY: Ensure the cache is not structurally incomplete compared to standard counts
+          const isLegacyOutdatedSynthetic = cached.source === 'synthetic' && cached.verses.length < expectedVerses;
+          const isCorruptedEmpty = cached.verses.length === 0;
+
+          if (!isLegacyOutdatedSynthetic && !isCorruptedEmpty && (cached.source === 'api' || cached.source === 'preloaded')) {
+            console.log(`Loaded verified chapter ${bookId} ${chapter} (${version}) from IndexedDB Cache.`);
+            return cached.verses.map(v => ({
+              ...v,
+              source: v.source || cached.source
+            }));
+          }
+        }
+      } catch (dbErr) {
+        console.error('Failed to read from IndexedDB cache on early check:', dbErr);
+      }
+    }
+
+    // 2. Try fetching from the server API if network is available
     if (navigator.onLine) {
       try {
         const response = await fetch(`/api/verse?bookId=${bookId}&chapter=${chapter}&version=${version}`);
         if (response.ok) {
           const data = await response.json();
-          if (data && data.verses) {
+          // CRITICAL: Only cache and return if the server actually returned verses!
+          if (data && Array.isArray(data.verses) && data.verses.length > 0) {
+            const serverSource = data.source || 'api';
+            const versesWithSource: VerseItem[] = data.verses.map((v: any) => ({
+              ...v,
+              source: serverSource as any
+            }));
+            
             // Save/Cache to IndexedDB
             const cacheItem: CachedChapter = {
               id: cacheKey,
               bookId,
               chapter,
               version,
-              verses: data.verses,
-              cachedAt: new Date().toISOString()
+              verses: versesWithSource,
+              cachedAt: new Date().toISOString(),
+              source: serverSource
             };
             await dbService.saveCachedChapter(cacheItem);
-            return data.verses;
+            return versesWithSource;
           }
         }
       } catch (err) {
@@ -50,25 +83,35 @@ export const bibleService = {
 
     // --- LOCAL FALLBACK MECHANISM ---
     
-    // 1. Check IndexedDB cache first
+    // 3. Fallback to cached chapter (even if it's synthetic, as long as it has verses and is structurally complete)
     try {
       const cached = await dbService.getCachedChapter(bookId, chapter, version);
-      if (cached && cached.verses && cached.verses.length > 0) {
-        console.log(`Loaded chapter ${bookId} ${chapter} (${version}) from IndexedDB Cache.`);
-        return cached.verses;
+      if (cached && cached.verses && cached.verses.length >= expectedVerses) {
+        console.log(`Loaded cached fallback chapter ${bookId} ${chapter} (${version}) from IndexedDB Cache.`);
+        const isPreloadedKey = `${bookId.toUpperCase()}-${chapter}`;
+        const chapterSource = cached.source || (AUTHENTIC_PASSAGES[isPreloadedKey] ? 'preloaded' as const : 'synthetic' as const);
+        
+        return cached.verses.map(v => ({
+          ...v,
+          source: v.source || chapterSource
+        }));
       }
     } catch (dbErr) {
       console.error('Failed to read from IndexedDB cache:', dbErr);
     }
 
-    // 2. Local fallback database generation (metadata backup)
+    // 4. Local fallback database generation (metadata backup)
     console.log(`No cache found for ${bookId} ${chapter} (${version}). Generating locally.`);
     const verseCount = getChapterVersesCount(bookId, chapter);
     const verses: VerseItem[] = [];
+    const isPreloadedKey = `${bookId.toUpperCase()}-${chapter}`;
+    const chapterSource = AUTHENTIC_PASSAGES[isPreloadedKey] ? 'preloaded' as const : 'synthetic' as const;
+
     for (let v = 1; v <= verseCount; v++) {
       verses.push({
         verse: v,
-        text: getGeneratedVerseText(bookId, chapter, v, version)
+        text: getGeneratedVerseText(bookId, chapter, v, version),
+        source: chapterSource
       });
     }
 
@@ -80,7 +123,8 @@ export const bibleService = {
         chapter,
         version,
         verses,
-        cachedAt: new Date().toISOString()
+        cachedAt: new Date().toISOString(),
+        source: chapterSource
       };
       await dbService.saveCachedChapter(cacheItem);
     } catch (e) {

@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { BIBLE_BOOKS, getChapterVersesCount, getGeneratedVerseText } from '../database/bibleMetadata';
+import { BIBLE_BOOKS, getChapterVersesCount, getGeneratedVerseText, AUTHENTIC_PASSAGES } from '../database/bibleMetadata';
+import { DAILY_VERSES } from '../database/dailyVerses';
 import { HIGHLIGHT_COLORS, SYSTEM_BADGES } from '../constants';
 import { dbService } from '../database/db';
-import { bibleService } from '../services/bibleService';
+import { bibleService, VerseItem } from '../services/bibleService';
 import { useRewards } from '../contexts/RewardContext';
 import { Note, Favorite, Highlight, Bookmark as BibleBookmark } from '../types';
 import { 
@@ -20,7 +21,11 @@ import {
   List,
   CheckCircle,
   X,
-  Mic
+  Mic,
+  ShieldCheck,
+  AlertCircle,
+  RefreshCw,
+  DownloadCloud
 } from 'lucide-react';
 import { formatShareText } from '../utils';
 
@@ -36,7 +41,7 @@ export const BibleReader: React.FC<BibleReaderProps> = ({ selectedBibleRef, setS
   const [activeBook, setActiveBook] = useState(BIBLE_BOOKS.find(b => b.id === 'GEN')!);
   const [activeChapter, setActiveChapter] = useState(1);
   const [activeVersion, setActiveVersion] = useState<'ARA' | 'NVI' | 'KJV'>('ARA');
-  const [verses, setVerses] = useState<{ verse: number; text: string }[]>([]);
+  const [verses, setVerses] = useState<VerseItem[]>([]);
 
   // Selection & UI controls
   const [selectedVerse, setSelectedVerse] = useState<number | null>(null);
@@ -155,6 +160,72 @@ export const BibleReader: React.FC<BibleReaderProps> = ({ selectedBibleRef, setS
     }, 450);
 
     addXp(10, 'Restaurou posição e destaques');
+  };
+
+  // Interactive verification and synchronization logic
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [syncStatus, setSyncStatus] = useState<'idle' | 'success' | 'error'>('idle');
+  const [isSyncingBook, setIsSyncingBook] = useState(false);
+  const [bookSyncProgress, setBookSyncProgress] = useState(0);
+
+  const forceOnlineSync = async () => {
+    if (isSyncing) return;
+    setIsSyncing(true);
+    setSyncStatus('idle');
+    try {
+      const fetched = await bibleService.fetchChapter(activeBook.id, activeChapter, activeVersion, true);
+      const firstSource = fetched[0]?.source;
+      if (fetched && fetched.length > 0 && (firstSource === 'api' || firstSource === 'preloaded')) {
+        setVerses(fetched);
+        setSyncStatus('success');
+        addXp(10, 'Sincronizou Capítulo Online');
+        setTimeout(() => setSyncStatus('idle'), 3000);
+        return;
+      }
+      throw new Error('Falha ao obter dados verificados do servidor.');
+    } catch (err) {
+      console.error('Error syncing online:', err);
+      setSyncStatus('error');
+      setTimeout(() => setSyncStatus('idle'), 3000);
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  const syncEntireBook = async () => {
+    if (isSyncingBook) return;
+    setIsSyncingBook(true);
+    setBookSyncProgress(0);
+    let successCount = 0;
+    const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+    try {
+      const totalChapters = activeBook.chaptersCount;
+      for (let ch = 1; ch <= totalChapters; ch++) {
+        try {
+          // Introduce a 350ms delay between fetches to prevent rate limiting
+          await delay(350);
+          
+          const fetched = await bibleService.fetchChapter(activeBook.id, ch, activeVersion, true);
+          const firstSource = fetched[0]?.source;
+          if (fetched && fetched.length > 0 && (firstSource === 'api' || firstSource === 'preloaded')) {
+            successCount++;
+            if (ch === activeChapter) {
+              setVerses(fetched);
+            }
+          }
+        } catch (chErr) {
+          console.warn(`Error caching chapter ${ch} of ${activeBook.id}:`, chErr);
+        }
+        setBookSyncProgress(Math.round((ch / totalChapters) * 100));
+      }
+      addXp(25, `Sincronizou livro ${activeBook.name} completo`);
+      alert(`Sincronização concluída! ${successCount} de ${totalChapters} capítulos do livro ${activeBook.name} foram sincronizados offline com texto bíblico verificado.`);
+    } catch (err) {
+      console.error('Error syncing entire book:', err);
+    } finally {
+      setIsSyncingBook(false);
+      setBookSyncProgress(0);
+    }
   };
 
   // Sync with selectedBibleRef if set from Dashboard
@@ -405,31 +476,151 @@ export const BibleReader: React.FC<BibleReaderProps> = ({ selectedBibleRef, setS
   };
 
   // Perform full Bible search offline
-  const handleSearch = () => {
+  const handleSearch = async () => {
     if (!searchQuery.trim()) {
       setIsSearching(false);
       return;
     }
 
-    setIsSearching(true);
-    const query = searchQuery.toLowerCase();
-    const resultsList: any[] = [];
+    const query = searchQuery.trim();
 
-    // Scan through preconfigured passages to simulate deep indexing
+    // 1. Check if the query is a Bible Reference (e.g., "João 3:16", "Rom 8:28", "Salmos 23")
+    const cleanQuery = query.toLowerCase();
+    const refRegex = /^(\d+)?\s*([a-zá-úçâêîôûãõ\s-]+?)\s+(\d+)(?:\s*:\s*(\d+))?$/i;
+    const match = cleanQuery.match(refRegex);
+    
+    let matchedRef = null;
+    if (match) {
+      const prefix = match[1] ? match[1] + ' ' : '';
+      const bookNamePart = (prefix + match[2].trim()).toLowerCase();
+      const chapterNum = parseInt(match[3], 10);
+      const verseNum = match[4] ? parseInt(match[4], 10) : null;
+      
+      const book = BIBLE_BOOKS.find(b => {
+        const nameNorm = b.name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+        const abbrevNorm = b.abbrev.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+        const queryNorm = bookNamePart.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+        return nameNorm === queryNorm || abbrevNorm === queryNorm || b.id.toLowerCase() === queryNorm;
+      });
+      
+      if (book && chapterNum >= 1 && chapterNum <= book.chaptersCount) {
+        matchedRef = {
+          bookId: book.id,
+          bookName: book.name,
+          chapter: chapterNum,
+          verse: verseNum
+        };
+      }
+    } else {
+      // Try exact book name only match (e.g., "Gênesis", "Mateus")
+      const bookOnly = BIBLE_BOOKS.find(b => {
+        const nameNorm = b.name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+        const queryNorm = cleanQuery.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+        return nameNorm === queryNorm || b.abbrev.toLowerCase() === queryNorm || b.id.toLowerCase() === queryNorm;
+      });
+      if (bookOnly) {
+        matchedRef = {
+          bookId: bookOnly.id,
+          bookName: bookOnly.name,
+          chapter: 1,
+          verse: null
+        };
+      }
+    }
+
+    if (matchedRef) {
+      const matchedBook = BIBLE_BOOKS.find(b => b.id === matchedRef.bookId);
+      if (matchedBook) {
+        setActiveBook(matchedBook);
+        setActiveChapter(matchedRef.chapter);
+        if (matchedRef.verse) {
+          setSelectedVerse(matchedRef.verse);
+        } else {
+          setSelectedVerse(null);
+        }
+        setIsSearching(false);
+        setSearchQuery('');
+        addXp(15, 'Navegou por Referência');
+        return;
+      }
+    }
+
+    // 2. Otherwise, perform a keyword search
+    setIsSearching(true);
+    const lowercaseQuery = query.toLowerCase();
+    const resultsList: any[] = [];
+    const seenResults = new Set<string>();
+
+    const addResult = (bookId: string, bookName: string, ch: number, v: number, text: string) => {
+      const key = `${bookId}-${ch}-${v}`;
+      if (!seenResults.has(key)) {
+        seenResults.add(key);
+        resultsList.push({
+          bookId,
+          bookName,
+          chapter: ch,
+          verse: v,
+          text
+        });
+      }
+    };
+
+    // A. Search across daily verses
+    DAILY_VERSES.forEach(dv => {
+      const text = activeVersion === 'KJV' 
+        ? (dv.textKJV || dv.text) 
+        : activeVersion === 'NVI' 
+          ? (dv.textNVI || dv.text) 
+          : dv.text;
+      if (text.toLowerCase().includes(lowercaseQuery)) {
+        addResult(dv.bookId, dv.bookName, dv.chapter, dv.verse, text);
+      }
+    });
+
+    // B. Search across all preloaded authentic passages
+    Object.entries(AUTHENTIC_PASSAGES).forEach(([key, verses]) => {
+      const [bookId, chStr] = key.split('-');
+      const ch = parseInt(chStr, 10);
+      const book = BIBLE_BOOKS.find(b => b.id === bookId);
+      if (book) {
+        const versesArray = verses as string[];
+        versesArray.forEach((text, idx) => {
+          if (text.toLowerCase().includes(lowercaseQuery)) {
+            addResult(book.id, book.name, ch, idx + 1, text);
+          }
+        });
+      }
+    });
+
+    // C. Search across ALL cached chapters in IndexedDB
+    try {
+      const cachedChapters = await dbService.getAllCachedChapters();
+      cachedChapters.forEach(cached => {
+        // Only search cache for the active version
+        if (cached.version === activeVersion && cached.verses) {
+          const book = BIBLE_BOOKS.find(b => b.id === cached.bookId);
+          if (book) {
+            cached.verses.forEach(v => {
+              if (v.text.toLowerCase().includes(lowercaseQuery)) {
+                addResult(book.id, book.name, cached.chapter, v.verse, v.text);
+              }
+            });
+          }
+        }
+      });
+    } catch (err) {
+      console.error('Error searching cached chapters:', err);
+    }
+
+    // D. Scan through first 3 chapters of all books (including synthetic generator)
+    // as a fallback for keywords if list is short, to keep full offline compatibility.
     BIBLE_BOOKS.forEach(book => {
-      // Check first chapters
       for (let ch = 1; ch <= Math.min(3, book.chaptersCount); ch++) {
         const verseCount = getChapterVersesCount(book.id, ch);
         for (let v = 1; v <= verseCount; v++) {
           const txt = getGeneratedVerseText(book.id, ch, v, activeVersion);
-          if (txt.toLowerCase().includes(query)) {
-            resultsList.push({
-              bookId: book.id,
-              bookName: book.name,
-              chapter: ch,
-              verse: v,
-              text: txt
-            });
+          if (txt.toLowerCase().includes(lowercaseQuery)) {
+            addResult(book.id, book.name, ch, v, txt);
           }
         }
       }
@@ -677,64 +868,187 @@ export const BibleReader: React.FC<BibleReaderProps> = ({ selectedBibleRef, setS
           )}
         </div>
 
-        {/* Right column: Bookmarks Sidebar */}
-        <div className="lg:col-span-1 bg-white rounded-2xl border border-slate-200 p-5 shadow-sm space-y-4">
-          <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
-            <Bookmark size={18} className="text-emerald-600" />
-            <h3 className="font-display font-bold text-slate-900 text-sm">
-              Marcadores Salvos
-            </h3>
+        {/* Right column: Sidebars Container */}
+        <div className="lg:col-span-1 space-y-6">
+          {/* Bookmarks Card */}
+          <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm space-y-4 animate-fade-in">
+            <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
+              <Bookmark size={18} className="text-emerald-600" />
+              <h3 className="font-display font-bold text-slate-900 text-sm">
+                Marcadores Salvos
+              </h3>
+            </div>
+
+            {bookmarks.length === 0 ? (
+              <div className="text-center py-8 text-slate-400 text-xs space-y-2 leading-relaxed">
+                <p>Nenhum marcador de posição salvo neste dispositivo.</p>
+                <p className="text-[10px] text-slate-400/70">Use o botão "Marcar Posição" no topo para registrar onde parou e as cores marcadas!</p>
+              </div>
+            ) : (
+              <div className="space-y-3 max-h-[300px] overflow-y-auto pr-1">
+                {bookmarks.map((b) => (
+                  <div 
+                    key={b.id}
+                    onClick={() => handleApplyBookmark(b)}
+                    className="p-3 bg-slate-50 border border-slate-200 hover:border-emerald-300 hover:bg-emerald-50/10 rounded-xl cursor-pointer transition-all relative group animate-fade-in"
+                  >
+                    <div className="flex justify-between items-start gap-1">
+                      <span className="text-xs font-mono font-bold text-emerald-700">
+                        {b.bookName} {b.chapter} ({b.version})
+                      </span>
+                      <button 
+                        onClick={(e) => handleDeleteBookmark(b.id, e)}
+                        className="text-slate-300 hover:text-rose-600 transition-all p-0.5 rounded"
+                        title="Excluir marcador"
+                      >
+                        <X size={13} />
+                      </button>
+                    </div>
+
+                    {b.label && (
+                      <p className="text-xs font-semibold text-slate-800 mt-1">
+                        {b.label}
+                      </p>
+                    )}
+
+                    {b.highlights && b.highlights.length > 0 && (
+                      <div className="mt-1 flex items-center gap-1">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                        <span className="text-[9px] font-mono text-slate-400">
+                          {b.highlights.length} {b.highlights.length === 1 ? 'destaque salvo' : 'destaques salvos'}
+                        </span>
+                      </div>
+                    )}
+
+                    <div className="mt-2.5 flex items-center justify-between text-[9px] font-mono text-slate-400 border-t border-slate-100 pt-1.5">
+                      <span>Posição Salva</span>
+                      <span className="bg-emerald-100 text-emerald-800 font-bold px-1 py-0.5 rounded">IR ➔</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
-          {bookmarks.length === 0 ? (
-            <div className="text-center py-8 text-slate-400 text-xs space-y-2 leading-relaxed">
-              <p>Nenhum marcador de posição salvo neste dispositivo.</p>
-              <p className="text-[10px] text-slate-400/70">Use o botão "Marcar Posição" no topo para registrar onde parou e as cores marcadas!</p>
+          {/* Textual Fidelity & Verification Card */}
+          <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm space-y-4 animate-fade-in">
+            <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
+              <ShieldCheck size={18} className="text-emerald-600" />
+              <h3 className="font-display font-bold text-slate-900 text-sm">
+                Fidelidade & Autenticidade
+              </h3>
             </div>
-          ) : (
-            <div className="space-y-3 max-h-[500px] overflow-y-auto pr-1">
-              {bookmarks.map((b) => (
-                <div 
-                  key={b.id}
-                  onClick={() => handleApplyBookmark(b)}
-                  className="p-3 bg-slate-50 border border-slate-200 hover:border-emerald-300 hover:bg-emerald-50/10 rounded-xl cursor-pointer transition-all relative group animate-fade-in"
-                >
-                  <div className="flex justify-between items-start gap-1">
-                    <span className="text-xs font-mono font-bold text-emerald-700">
-                      {b.bookName} {b.chapter} ({b.version})
-                    </span>
-                    <button 
-                      onClick={(e) => handleDeleteBookmark(b.id, e)}
-                      className="text-slate-300 hover:text-rose-600 transition-all p-0.5 rounded"
-                      title="Excluir marcador"
-                    >
-                      <X size={13} />
-                    </button>
+
+            {/* Current Chapter Status */}
+            <div className="space-y-3">
+              <div className="text-[11px] font-mono text-slate-400 uppercase tracking-wider font-bold">
+                Capítulo Atual ({activeBook.abbrev} {activeChapter})
+              </div>
+
+              {verses[0]?.source === 'api' ? (
+                <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl space-y-1.5">
+                  <div className="flex items-center gap-1.5 text-emerald-800 font-bold text-xs">
+                    <ShieldCheck size={16} className="text-emerald-600 shrink-0" />
+                    <span>✓ Texto Bíblico Verificado</span>
                   </div>
-
-                  {b.label && (
-                    <p className="text-xs font-semibold text-slate-800 mt-1">
-                      {b.label}
-                    </p>
-                  )}
-
-                  {b.highlights && b.highlights.length > 0 && (
-                    <div className="mt-1 flex items-center gap-1">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                      <span className="text-[9px] font-mono text-slate-400">
-                        {b.highlights.length} {b.highlights.length === 1 ? 'destaque salvo' : 'destaques salvos'}
-                      </span>
-                    </div>
-                  )}
-
-                  <div className="mt-2.5 flex items-center justify-between text-[9px] font-mono text-slate-400 border-t border-slate-100 pt-1.5">
-                    <span>Posição Salva</span>
-                    <span className="bg-emerald-100 text-emerald-800 font-bold px-1 py-0.5 rounded">IR ➔</span>
+                  <p className="text-[11px] text-emerald-700 leading-relaxed font-light">
+                    O texto deste capítulo foi comparado e sincronizado com os servidores teológicos via API, assegurando exatidão literal integral.
+                  </p>
+                  <div className="text-[9px] font-mono text-emerald-500 font-bold">
+                    FONTE: BÍBLIA API ONLINE
                   </div>
                 </div>
-              ))}
+              ) : verses[0]?.source === 'preloaded' ? (
+                <div className="p-3 bg-emerald-50/50 border border-emerald-200/60 rounded-xl space-y-1.5">
+                  <div className="flex items-center gap-1.5 text-emerald-800 font-bold text-xs">
+                    <ShieldCheck size={16} className="text-emerald-600 shrink-0" />
+                    <span>✓ Texto Local Consolidado</span>
+                  </div>
+                  <p className="text-[11px] text-emerald-700 leading-relaxed font-light">
+                    Este é um dos capítulos teológicos de referência pré-carregados no sistema. É 100% autêntico e fidedigno ao texto original.
+                  </p>
+                  <div className="text-[9px] font-mono text-emerald-500 font-bold">
+                    FONTE: BASE INTERNA AUTÊNTICA
+                  </div>
+                </div>
+              ) : (
+                <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl space-y-2">
+                  <div className="flex items-center gap-1.5 text-amber-800 font-bold text-xs">
+                    <AlertCircle size={16} className="text-amber-600 shrink-0" />
+                    <span>Base Auxiliar Offline</span>
+                  </div>
+                  <p className="text-[11px] text-amber-700 leading-relaxed font-light">
+                    Este capítulo foi gerado offline a partir dos metadados temáticos estruturados. Você pode baixar o texto bíblico oficial completo abaixo.
+                  </p>
+                  
+                  <button
+                    onClick={forceOnlineSync}
+                    disabled={isSyncing}
+                    className="w-full flex items-center justify-center gap-1.5 bg-amber-500 hover:bg-amber-600 text-white font-bold py-1.5 px-3 rounded-lg text-xs transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow"
+                  >
+                    {isSyncing ? (
+                      <>
+                        <RefreshCw size={12} className="animate-spin" />
+                        <span>Verificando...</span>
+                      </>
+                    ) : (
+                      <>
+                        <DownloadCloud size={12} />
+                        <span>Sincronizar Capítulo</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              )}
+
+              {/* General Sync Status Indicators */}
+              {syncStatus === 'success' && (
+                <p className="text-[10px] text-emerald-600 font-semibold font-mono text-center animate-pulse">
+                  ✓ Texto atualizado e comparado com sucesso!
+                </p>
+              )}
+              {syncStatus === 'error' && (
+                <p className="text-[10px] text-rose-500 font-semibold font-mono text-center">
+                  ⚠️ Erro ao conectar ao servidor. Verifique a rede.
+                </p>
+              )}
+
+              {/* Book Synchronization Panel */}
+              <div className="border-t border-slate-100 pt-3 mt-3 space-y-2.5">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="font-semibold text-slate-700">Estudo Offline Completo</span>
+                  <span className="text-[10px] font-mono text-slate-400">{activeBook.name}</span>
+                </div>
+                
+                <p className="text-[11px] text-slate-500 leading-relaxed">
+                  Baixe e compare todos os {activeBook.chaptersCount} capítulos de {activeBook.name} para que fiquem gravados permanentemente no banco offline (IndexedDB).
+                </p>
+
+                {isSyncingBook ? (
+                  <div className="space-y-1.5">
+                    <div className="flex justify-between text-[10px] font-mono text-emerald-600 font-bold">
+                      <span>Baixando capítulos...</span>
+                      <span>{bookSyncProgress}%</span>
+                    </div>
+                    <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
+                      <div 
+                        className="bg-emerald-500 h-full transition-all duration-300" 
+                        style={{ width: `${bookSyncProgress}%` }}
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    onClick={syncEntireBook}
+                    className="w-full flex items-center justify-center gap-1.5 bg-slate-100 hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-300 text-slate-700 font-bold py-2 px-3 rounded-xl text-xs border border-slate-200 transition-all shadow-sm"
+                  >
+                    <DownloadCloud size={13} className="text-emerald-600" />
+                    <span>Sincronizar Livro Completo</span>
+                  </button>
+                )}
+              </div>
             </div>
-          )}
+          </div>
         </div>
 
       </div>

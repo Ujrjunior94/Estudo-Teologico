@@ -220,6 +220,9 @@ export const dbService = {
   async saveCachedChapter(cached: CachedChapter): Promise<void> {
     await runTx<void>('bible_cache', 'readwrite', (store) => store.put(cached));
   },
+  async getAllCachedChapters(): Promise<CachedChapter[]> {
+    return runTx<CachedChapter[]>('bible_cache', 'readonly', (store) => store.getAll());
+  },
   
   // BOOKMARKS CRUD
   async getBookmarks(): Promise<Bookmark[]> {

@@ -1,4 +1,5 @@
 import { BibleBook } from '../types';
+import { DAILY_VERSES } from './dailyVerses';
 
 export const BIBLE_BOOKS: BibleBook[] = [
   // Antigo Testamento (39)
@@ -158,6 +159,22 @@ export function getGeneratedVerseText(bookId: string, chapter: number, verse: nu
   const key = `${bookId}-${chapter}`;
   if (AUTHENTIC_PASSAGES[key] && AUTHENTIC_PASSAGES[key][verse - 1]) {
     return AUTHENTIC_PASSAGES[key][verse - 1];
+  }
+
+  // Check if we have an authentic version in DAILY_VERSES
+  const dailyMatch = DAILY_VERSES.find(
+    v => v.bookId.toUpperCase() === bookId.toUpperCase() && 
+         v.chapter === chapter && 
+         v.verse === verse
+  );
+  if (dailyMatch) {
+    if (version === 'KJV' && dailyMatch.textKJV) {
+      return dailyMatch.textKJV;
+    }
+    if (version === 'NVI' && dailyMatch.textNVI) {
+      return dailyMatch.textNVI;
+    }
+    return dailyMatch.text;
   }
 
   // Elegant, realistic, and highly inspirational text generator that respects context

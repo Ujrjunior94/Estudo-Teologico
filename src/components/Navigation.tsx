@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   BookOpen, 
   LayoutDashboard, 
@@ -13,7 +13,8 @@ import {
   Award,
   BookMarked,
   Heart,
-  HeartHandshake
+  HeartHandshake,
+  Smartphone
 } from 'lucide-react';
 import { useRewards } from '../contexts/RewardContext';
 
@@ -24,6 +25,35 @@ interface NavigationProps {
 
 export const Navigation: React.FC<NavigationProps> = ({ activeTab, setActiveTab }) => {
   const { state } = useRewards();
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [showInstallBtn, setShowInstallBtn] = useState(false);
+
+  useEffect(() => {
+    const handleBeforeInstallPrompt = (e: Event) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+      setShowInstallBtn(true);
+    };
+
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+
+    if (window.matchMedia('(display-mode: standalone)').matches || (navigator as any).standalone) {
+      setShowInstallBtn(false);
+    }
+
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    };
+  }, []);
+
+  const handleInstallClick = async () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    console.log(`Navigation PWA Install choice: ${outcome}`);
+    setDeferredPrompt(null);
+    setShowInstallBtn(false);
+  };
 
   const navItems = [
     { id: 'dashboard', label: 'Painel', icon: LayoutDashboard },
@@ -93,6 +123,25 @@ export const Navigation: React.FC<NavigationProps> = ({ activeTab, setActiveTab 
             );
           })}
         </nav>
+
+        {/* PWA Install Widget */}
+        {showInstallBtn && (
+          <div className="p-4 mx-4 mb-4 bg-slate-800/50 border border-emerald-500/20 rounded-xl flex flex-col gap-1.5 animate-fade-in">
+            <div className="flex items-center gap-2 text-emerald-400">
+              <Smartphone size={14} />
+              <h3 className="text-xs font-bold font-sans">Instalar Aplicativo</h3>
+            </div>
+            <p className="text-[10px] text-slate-400 leading-normal">
+              Acesse offline diretamente da sua tela inicial como app nativo.
+            </p>
+            <button 
+              onClick={handleInstallClick}
+              className="w-full bg-emerald-500 hover:bg-emerald-600 text-slate-950 text-xs font-bold py-1.5 px-3 rounded-lg flex items-center justify-center gap-1 transition-colors cursor-pointer"
+            >
+              Instalar Agora
+            </button>
+          </div>
+        )}
 
         {/* Footer */}
         <div className="p-4 border-t border-slate-800 flex items-center justify-between">

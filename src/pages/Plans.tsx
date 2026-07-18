@@ -35,6 +35,20 @@ export const Plans: React.FC<PlansProps> = ({ setActiveTab, setSelectedBibleRef 
 
   useEffect(() => {
     loadPlans();
+
+    // Real-time synchronization update listener
+    const handleDbUpdate = (e: Event) => {
+      const customEvent = e as CustomEvent;
+      if (!customEvent.detail || customEvent.detail.type === 'plans') {
+        console.log('[Plans] Real-time change detected in IndexedDB, reloading...');
+        loadPlans();
+      }
+    };
+
+    window.addEventListener('db-update', handleDbUpdate);
+    return () => {
+      window.removeEventListener('db-update', handleDbUpdate);
+    };
   }, []);
 
   const loadPlans = async () => {

@@ -42,6 +42,20 @@ export const SavedItems: React.FC<SavedItemsProps> = ({ setActiveTab, setSelecte
 
   useEffect(() => {
     loadData();
+
+    // Real-time synchronization update listener
+    const handleDbUpdate = (e: Event) => {
+      const customEvent = e as CustomEvent;
+      if (!customEvent.detail || customEvent.detail.type === 'notes' || customEvent.detail.type === 'favorites') {
+        console.log('[SavedItems] Real-time change detected in IndexedDB, reloading...');
+        loadData();
+      }
+    };
+
+    window.addEventListener('db-update', handleDbUpdate);
+    return () => {
+      window.removeEventListener('db-update', handleDbUpdate);
+    };
   }, []);
 
   const loadData = async () => {

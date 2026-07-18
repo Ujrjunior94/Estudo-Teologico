@@ -71,36 +71,49 @@ export const Dashboard: React.FC<DashboardProps> = ({ setActiveTab, setSelectedB
     checkFavorite();
   }, [verseOfDay]);
 
-  useEffect(() => {
-    async function loadStats() {
-      const notes = await dbService.getNotes();
-      const favs = await dbService.getFavorites();
-      const hls = await dbService.getHighlights();
-      const plans = await dbService.getPlans();
-      
-      let completedChaptersCount = 0;
-      plans.forEach(p => {
-        completedChaptersCount += p.completedDays.length;
-      });
+  const loadStats = async () => {
+    const notes = await dbService.getNotes();
+    const favs = await dbService.getFavorites();
+    const hls = await dbService.getHighlights();
+    const plans = await dbService.getPlans();
+    
+    let completedChaptersCount = 0;
+    plans.forEach(p => {
+      completedChaptersCount += p.completedDays.length;
+    });
 
-      setStats({
-        notesCount: notes.length,
-        favoritesCount: favs.length,
-        highlightsCount: hls.length,
-        plansCount: plans.length,
-        completedChapters: completedChaptersCount
-      });
+    setStats({
+      notesCount: notes.length,
+      favoritesCount: favs.length,
+      highlightsCount: hls.length,
+      plansCount: plans.length,
+      completedChapters: completedChaptersCount
+    });
 
-      // Unlock initial badge
-      if (favs.length > 0 || notes.length > 0 || hls.length > 0) {
-        unlockBadge('primeiros_passos');
-      }
-      if (state.dailyStreak >= 3) {
-        unlockBadge('estudioso_fiel');
-      }
+    // Unlock initial badge
+    if (favs.length > 0 || notes.length > 0 || hls.length > 0) {
+      unlockBadge('primeiros_passos');
     }
+    if (state.dailyStreak >= 3) {
+      unlockBadge('estudioso_fiel');
+    }
+  };
+
+  useEffect(() => {
     loadStats();
-  }, [state, unlockBadge]);
+  }, [state.dailyStreak, unlockBadge]);
+
+  useEffect(() => {
+    const handleDbUpdate = () => {
+      console.log('[Dashboard] Real-time change detected in IndexedDB, updating stats...');
+      loadStats();
+    };
+
+    window.addEventListener('db-update', handleDbUpdate);
+    return () => {
+      window.removeEventListener('db-update', handleDbUpdate);
+    };
+  }, []);
 
   const toggleFavorite = async () => {
     try {

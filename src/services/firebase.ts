@@ -13,7 +13,7 @@ import {
   User as FirebaseUser
 } from 'firebase/auth';
 import { 
-  getFirestore, 
+  initializeFirestore, 
   doc, 
   setDoc, 
   getDoc, 
@@ -22,7 +22,8 @@ import {
   deleteDoc, 
   writeBatch,
   query,
-  where
+  where,
+  onSnapshot
 } from 'firebase/firestore';
 import { dbService } from '../database/db';
 import { Note, Favorite, Highlight, ReadingPlan, RewardState, CreativeDesign, ReadingProgress, Bookmark, PrayerRequest } from '../types';
@@ -42,7 +43,9 @@ const firebaseConfig = {
 // Initialize Firebase App
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 export const auth = getAuth(app);
-export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
+export const db = initializeFirestore(app, {
+  experimentalForceLongPolling: true,
+}, firebaseConfig.firestoreDatabaseId);
 export const googleProvider = new GoogleAuthProvider();
 
 // Custom UI events or notifications for synchronization
@@ -328,16 +331,36 @@ export async function syncAllData(userId: string): Promise<boolean> {
 }
 
 /**
+ * Register Background Sync via Service Worker when offline modifications are made.
+ */
+export function registerOfflineSync() {
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.ready.then((reg) => {
+      if ('sync' in reg) {
+        console.log('[Sync] Registering "sync-theology-studies" background sync tag...');
+        return (reg as any).sync.register('sync-theology-studies');
+      }
+    }).catch((err) => {
+      console.warn('[Sync] Failed to register background sync offline:', err);
+    });
+  }
+}
+
+/**
  * Upload a single item update to Firestore in real-time.
  * Used internally by saving functions when user is logged in.
  */
 export async function saveToCloudRealtime(userId: string, pathSegment: string, id: string, data: any) {
-  if (!navigator.onLine) return; // Silent skip if completely offline
+  if (!navigator.onLine) {
+    registerOfflineSync();
+    return; // Silent skip if completely offline
+  }
   try {
     const docRef = doc(db, 'users', userId, pathSegment, id);
     await setDoc(docRef, data);
   } catch (err) {
     console.warn(`[Sync] Realtime save to cloud failed for ${pathSegment}/${id}:`, err);
+    registerOfflineSync();
   }
 }
 
@@ -345,12 +368,16 @@ export async function saveToCloudRealtime(userId: string, pathSegment: string, i
  * Delete a single item from Firestore in real-time.
  */
 export async function deleteFromCloudRealtime(userId: string, pathSegment: string, id: string) {
-  if (!navigator.onLine) return;
+  if (!navigator.onLine) {
+    registerOfflineSync();
+    return;
+  }
   try {
     const docRef = doc(db, 'users', userId, pathSegment, id);
     await deleteDoc(docRef);
   } catch (err) {
     console.warn(`[Sync] Realtime delete from cloud failed for ${pathSegment}/${id}:`, err);
+    registerOfflineSync();
   }
 }
 
@@ -371,4 +398,86 @@ registerCloudHandlers(
     }
   }
 );
+
+// Real-time Firestore Sync Listeners (to sync changes back from the cloud to local storage)
+let notesUnsubscribe: (() => void) | null = null;
+let plansUnsubscribe: (() => void) | null = null;
+
+export function setupRealtimeListeners(userId: string, onUpdate?: () => void) {
+  // Clear any existing active listeners
+  clearRealtimeListeners();
+
+  if (!userId) return;
+
+  console.log('[Firebase Realtime] Subscribing to cloud changes for notes and plans for user:', userId);
+
+  // 1. Real-time Notes listener
+  const notesCol = collection(db, 'users', userId, 'notes');
+  notesUnsubscribe = onSnapshot(notesCol, async (snapshot) => {
+    let localDBUpdated = false;
+    
+    for (const change of snapshot.docChanges()) {
+      const cloudNote = change.doc.data() as Note;
+      if (change.type === 'added' || change.type === 'modified') {
+        // Query local note to see if we need an update (merge logic based on updatedAt timestamp)
+        const localNote = await dbService.getNotes().then(list => list.find(n => n.id === cloudNote.id));
+        if (!localNote || !localNote.updatedAt || !cloudNote.updatedAt || new Date(cloudNote.updatedAt) > new Date(localNote.updatedAt)) {
+          await dbService.saveNoteFromCloud(cloudNote);
+          localDBUpdated = true;
+        }
+      } else if (change.type === 'removed') {
+        await dbService.deleteNoteFromCloud(change.doc.id);
+        localDBUpdated = true;
+      }
+    }
+
+    if (localDBUpdated) {
+      console.log('[Firebase Realtime] Notes database changed in cloud. Dispatching update event.');
+      window.dispatchEvent(new CustomEvent('db-update', { detail: { type: 'notes' } }));
+      if (onUpdate) onUpdate();
+    }
+  }, (error) => {
+    console.error('[Firebase Realtime] Error in notes snapshot listener:', error);
+  });
+
+  // 2. Real-time Plans listener
+  const plansCol = collection(db, 'users', userId, 'plans');
+  plansUnsubscribe = onSnapshot(plansCol, async (snapshot) => {
+    let localDBUpdated = false;
+
+    for (const change of snapshot.docChanges()) {
+      const cloudPlan = change.doc.data() as ReadingPlan;
+      if (change.type === 'added' || change.type === 'modified') {
+        const localPlan = await dbService.getPlans().then(list => list.find(p => p.id === cloudPlan.id));
+        if (!localPlan || cloudPlan.completedDays.length > localPlan.completedDays.length || cloudPlan.completedVerses.length > localPlan.completedVerses.length) {
+          await dbService.savePlanFromCloud(cloudPlan);
+          localDBUpdated = true;
+        }
+      } else if (change.type === 'removed') {
+        await dbService.deletePlanFromCloud(change.doc.id);
+        localDBUpdated = true;
+      }
+    }
+
+    if (localDBUpdated) {
+      console.log('[Firebase Realtime] Plans database changed in cloud. Dispatching update event.');
+      window.dispatchEvent(new CustomEvent('db-update', { detail: { type: 'plans' } }));
+      if (onUpdate) onUpdate();
+    }
+  }, (error) => {
+    console.error('[Firebase Realtime] Error in plans snapshot listener:', error);
+  });
+}
+
+export function clearRealtimeListeners() {
+  if (notesUnsubscribe) {
+    notesUnsubscribe();
+    notesUnsubscribe = null;
+  }
+  if (plansUnsubscribe) {
+    plansUnsubscribe();
+    plansUnsubscribe = null;
+  }
+  console.log('[Firebase Realtime] Cleared active cloud listeners.');
+}
 

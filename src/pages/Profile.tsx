@@ -180,6 +180,7 @@ export const Profile: React.FC = () => {
   const handleLogout = async () => {
     try {
       await signOut(auth);
+      localStorage.removeItem('guest_mode_v1');
       setSuccess('Você saiu da sua conta com sucesso.');
       // Refresh local page
       window.location.reload();
@@ -194,6 +195,7 @@ export const Profile: React.FC = () => {
     setError(null);
     try {
       await deleteUser(currentUser);
+      localStorage.removeItem('guest_mode_v1');
       setSuccess('Sua conta foi excluída permanentemente.');
       setShowDeleteConfirm(false);
       window.location.reload();

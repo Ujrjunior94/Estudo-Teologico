@@ -104,6 +104,14 @@ export const dbService = {
     }
   },
 
+  // CLOUD-SAFE NOTES CRUD (used for incoming real-time cloud data to avoid loops)
+  async saveNoteFromCloud(note: Note): Promise<void> {
+    await runTx<void>('notes', 'readwrite', (store) => store.put(note));
+  },
+  async deleteNoteFromCloud(id: string): Promise<void> {
+    await runTx<void>('notes', 'readwrite', (store) => store.delete(id));
+  },
+
   // FAVORITES CRUD
   async getFavorites(): Promise<Favorite[]> {
     return runTx<Favorite[]>('favorites', 'readonly', (store) => store.getAll());
@@ -153,6 +161,14 @@ export const dbService = {
     if (cloudDelete) {
       cloudDelete('plans', id).catch(err => console.warn('Realtime cloud delete failed for plan:', err));
     }
+  },
+
+  // CLOUD-SAFE PLANS CRUD (used for incoming real-time cloud data to avoid loops)
+  async savePlanFromCloud(plan: ReadingPlan): Promise<void> {
+    await runTx<void>('plans', 'readwrite', (store) => store.put(plan));
+  },
+  async deletePlanFromCloud(id: string): Promise<void> {
+    await runTx<void>('plans', 'readwrite', (store) => store.delete(id));
   },
 
   // REWARDS Persistence

@@ -2,8 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { RewardProvider } from './contexts/RewardContext';
 import { Navigation } from './components/Navigation';
 import { NotificationToast } from './components/NotificationToast';
-import { WifiOff, ShieldAlert, Smartphone, X } from 'lucide-react';
+import { WifiOff, ShieldAlert, Smartphone, X, Loader2 } from 'lucide-react';
 import { dbService } from './database/db';
+import { User as FirebaseUser } from 'firebase/auth';
+import { auth, setupRealtimeListeners, clearRealtimeListeners, syncAllData } from './services/firebase';
+import { Login } from './components/Login';
 
 // Pages
 import { Dashboard } from './pages/Dashboard';
@@ -23,8 +26,44 @@ export default function App() {
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [showInstallBanner, setShowInstallBanner] = useState(false);
 
+  // Authentication & Guest states
+  const [currentUser, setCurrentUser] = useState<FirebaseUser | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
+  const [continueOffline, setContinueOffline] = useState(() => {
+    return localStorage.getItem('guest_mode_v1') === 'true';
+  });
+
   // Bible reference hook to allow switching to Bible chapter directly from dashboard/favorites/plans
   const [selectedBibleRef, setSelectedBibleRef] = useState<{ bookId: string; chapter: number } | null>(null);
+
+  // Track authentication state and configure real-time cloud listeners
+  useEffect(() => {
+    const unsubscribe = auth.onAuthStateChanged((user) => {
+      setCurrentUser(user);
+      setAuthLoading(false);
+      
+      if (user) {
+        // Enforce guest mode to false since user is officially authenticated
+        setContinueOffline(false);
+        localStorage.setItem('guest_mode_v1', 'false');
+        
+        // Setup real-time listeners for notes and plans in Firestore
+        setupRealtimeListeners(user.uid);
+
+        // Perform automatic bi-directional synchronization on startup or login
+        syncAllData(user.uid).catch((err) => {
+          console.warn('[Sync] Initial bi-directional sync failed/offline:', err);
+        });
+      } else {
+        clearRealtimeListeners();
+      }
+    });
+
+    return () => {
+      unsubscribe();
+      clearRealtimeListeners();
+    };
+  }, []);
 
   // Auto-clear bible cache on first load after the API fix to ensure clean synchronisation and prevent mismatches
   useEffect(() => {
@@ -43,7 +82,16 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    const handleOnline = () => setIsOnline(true);
+    const handleOnline = () => {
+      setIsOnline(true);
+      const user = auth.currentUser;
+      if (user) {
+        console.log('[App] Browser came online. Performing automatic bi-directional sync...');
+        syncAllData(user.uid).catch((err) => {
+          console.warn('[Sync] Sync failed when browser came online:', err);
+        });
+      }
+    };
     const handleOffline = () => setIsOnline(false);
 
     window.addEventListener('online', handleOnline);
@@ -53,6 +101,12 @@ export default function App() {
     const handleMessage = (event: MessageEvent) => {
       if (event.data && event.data.type === 'SYNC_COMPLETED') {
         console.log('[App] Received sync completion from SW:', event.data.message);
+        const user = auth.currentUser;
+        if (user) {
+          syncAllData(user.uid).catch((err) => {
+            console.warn('[Sync] Sync failed following Service Worker SYNC_COMPLETED trigger:', err);
+          });
+        }
       }
     };
 
@@ -67,7 +121,7 @@ export default function App() {
         navigator.serviceWorker.removeEventListener('message', handleMessage);
       }
     };
-  }, []);
+  }, [currentUser]);
 
   useEffect(() => {
     const handleBeforeInstallPrompt = (e: Event) => {
@@ -148,6 +202,31 @@ export default function App() {
         return <Dashboard setActiveTab={setActiveTab} setSelectedBibleRef={setSelectedBibleRef} />;
     }
   };
+
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50 font-sans">
+        <div className="text-center space-y-3">
+          <Loader2 className="w-10 h-10 text-emerald-600 animate-spin mx-auto" />
+          <p className="text-xs text-slate-500 font-mono uppercase tracking-widest">Iniciando Bíblia PRO...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!currentUser && !continueOffline) {
+    return (
+      <RewardProvider>
+        <Login 
+          onContinueOffline={() => {
+            setContinueOffline(true);
+            localStorage.setItem('guest_mode_v1', 'true');
+          }} 
+        />
+        <NotificationToast />
+      </RewardProvider>
+    );
+  }
 
   return (
     <RewardProvider>

@@ -102,7 +102,7 @@ export interface ChatSession {
 
 export interface CreativeDesign {
   id: string;
-  type: 'slide' | 'cover' | 'illustrated_verse';
+  type: 'slide' | 'cover' | 'illustrated_verse' | 'instagram_post' | 'instagram_story' | 'instagram_sticker';
   title: string;
   verseText?: string;
   verseRef?: string;

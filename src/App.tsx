@@ -3,6 +3,7 @@ import { RewardProvider } from './contexts/RewardContext';
 import { Navigation } from './components/Navigation';
 import { NotificationToast } from './components/NotificationToast';
 import { WifiOff, ShieldAlert, Smartphone, X } from 'lucide-react';
+import { dbService } from './database/db';
 
 // Pages
 import { Dashboard } from './pages/Dashboard';
@@ -24,6 +25,22 @@ export default function App() {
 
   // Bible reference hook to allow switching to Bible chapter directly from dashboard/favorites/plans
   const [selectedBibleRef, setSelectedBibleRef] = useState<{ bookId: string; chapter: number } | null>(null);
+
+  // Auto-clear bible cache on first load after the API fix to ensure clean synchronisation and prevent mismatches
+  useEffect(() => {
+    async function init() {
+      if (!localStorage.getItem('bible_cache_cleared_v2')) {
+        try {
+          await dbService.clearBibleCache();
+          localStorage.setItem('bible_cache_cleared_v2', 'true');
+          console.log('[App] Old bible cache cleared successfully due to database sync upgrade.');
+        } catch (err) {
+          console.warn('[App] Could not clear outdated Bible cache on startup:', err);
+        }
+      }
+    }
+    init();
+  }, []);
 
   useEffect(() => {
     const handleOnline = () => setIsOnline(true);

@@ -151,6 +151,112 @@ async function getTranslationData(version: string) {
   return null;
 }
 
+// Robustly find a book in GitHub translation database by matching abbreviation, name, and alternative aliases
+function findBookInGithubData(bookId: string, githubData: any[]): any | null {
+  const targetBook = BIBLE_BOOKS.find(b => b.id === bookId);
+  if (!targetBook) return null;
+
+  // Search by exact book name, abbreviation, or ID in various structures
+  for (const entry of githubData) {
+    if (!entry) continue;
+    const entryName = String(entry.name || '').trim().toLowerCase();
+    const entryAbbrev = String(entry.abbreviation || entry.abbrev || '').trim().toLowerCase();
+    
+    // Normalize targets
+    const targetName = targetBook.name.toLowerCase();
+    const targetAbbrev = targetBook.abbrev.toLowerCase();
+    const targetId = bookId.toLowerCase();
+
+    if (
+      entryName === targetName ||
+      entryAbbrev === targetAbbrev ||
+      entryAbbrev === targetId ||
+      entryName === targetId ||
+      // Alternative common Portuguese matches
+      (targetId === 'gen' && (entryName === 'gênesis' || entryAbbrev === 'gn')) ||
+      (targetId === 'exo' && (entryName === 'êxodo' || entryAbbrev === 'êx' || entryAbbrev === 'ex')) ||
+      (targetId === 'lev' && (entryName === 'levítico' || entryAbbrev === 'lv')) ||
+      (targetId === 'num' && (entryName === 'números' || entryAbbrev === 'nm')) ||
+      (targetId === 'deu' && (entryName === 'deuteronômio' || entryAbbrev === 'dt')) ||
+      (targetId === 'jos' && (entryName === 'josué' || entryAbbrev === 'js')) ||
+      (targetId === 'jdg' && (entryName === 'juízes' || entryAbbrev === 'jz')) ||
+      (targetId === 'rut' && (entryName === 'rute' || entryAbbrev === 'rt')) ||
+      (targetId === '1sa' && (entryName === '1 samuel' || entryAbbrev === '1sm')) ||
+      (targetId === '2sa' && (entryName === '2 samuel' || entryAbbrev === '2sm')) ||
+      (targetId === '1ki' && (entryName === '1 reis' || entryAbbrev === '1re')) ||
+      (targetId === '2ki' && (entryName === '2 reis' || entryAbbrev === '2re')) ||
+      (targetId === '1ch' && (entryName === '1 crônicas' || entryAbbrev === '1cr')) ||
+      (targetId === '2ch' && (entryName === '2 crônicas' || entryAbbrev === '2cr')) ||
+      (targetId === 'ezr' && (entryName === 'esdras' || entryAbbrev === 'ez')) ||
+      (targetId === 'neh' && (entryName === 'neemias' || entryAbbrev === 'ne')) ||
+      (targetId === 'est' && (entryName === 'ester' || entryAbbrev === 'et')) ||
+      (targetId === 'job' && (entryName === 'jó' || entryAbbrev === 'jó')) ||
+      (targetId === 'psa' && (entryName === 'salmos' || entryAbbrev === 'sl')) ||
+      (targetId === 'pro' && (entryName === 'provérbios' || entryAbbrev === 'pv')) ||
+      (targetId === 'ecc' && (entryName === 'eclesiastes' || entryAbbrev === 'ec')) ||
+      (targetId === 'sng' && (entryName === 'cantares' || entryName === 'cântico dos cânticos' || entryAbbrev === 'ct')) ||
+      (targetId === 'isa' && (entryName === 'isaías' || entryAbbrev === 'is')) ||
+      (targetId === 'jer' && (entryName === 'jeremias' || entryAbbrev === 'jr')) ||
+      (targetId === 'lam' && (entryName === 'lamentações' || entryAbbrev === 'lm')) ||
+      (targetId === 'ezk' && (entryName === 'ezequiel' || entryAbbrev === 'ez')) ||
+      (targetId === 'dan' && (entryName === 'daniel' || entryAbbrev === 'dn')) ||
+      (targetId === 'hos' && (entryName === 'oseias' || entryAbbrev === 'os')) ||
+      (targetId === 'jol' && (entryName === 'joel' || entryAbbrev === 'jl')) ||
+      (targetId === 'amo' && (entryName === 'amós' || entryAbbrev === 'am')) ||
+      (targetId === 'oba' && (entryName === 'obadias' || entryAbbrev === 'ob')) ||
+      (targetId === 'jon' && (entryName === 'jonas' || entryAbbrev === 'jn')) ||
+      (targetId === 'mic' && (entryName === 'miqueias' || entryAbbrev === 'mq')) ||
+      (targetId === 'nah' && (entryName === 'naum' || entryAbbrev === 'na')) ||
+      (targetId === 'hab' && (entryName === 'habacuque' || entryAbbrev === 'hc')) ||
+      (targetId === 'zep' && (entryName === 'sofonias' || entryAbbrev === 'sf')) ||
+      (targetId === 'hag' && (entryName === 'ageu' || entryAbbrev === 'ag')) ||
+      (targetId === 'zec' && (entryName === 'zacarias' || entryAbbrev === 'zc')) ||
+      (targetId === 'mal' && (entryName === 'malaquias' || entryAbbrev === 'ml')) ||
+      (targetId === 'mat' && (entryName === 'mateus' || entryAbbrev === 'mt')) ||
+      (targetId === 'mrk' && (entryName === 'marcos' || entryAbbrev === 'mc')) ||
+      (targetId === 'luk' && (entryName === 'lucas' || entryAbbrev === 'lc')) ||
+      (targetId === 'joh' && (entryName === 'joão' || entryAbbrev === 'jo')) ||
+      (targetId === 'act' && (entryName === 'atos' || entryAbbrev === 'at')) ||
+      (targetId === 'rom' && (entryName === 'romanos' || entryAbbrev === 'rm')) ||
+      (targetId === '1co' && (entryName === '1 coríntios' || entryAbbrev === '1co')) ||
+      (targetId === '2co' && (entryName === '2 coríntios' || entryAbbrev === '2co')) ||
+      (targetId === 'gal' && (entryName === 'gálatas' || entryAbbrev === 'gl')) ||
+      (targetId === 'eph' && (entryName === 'efésios' || entryAbbrev === 'ef')) ||
+      (targetId === 'php' && (entryName === 'filipenses' || entryAbbrev === 'fp')) ||
+      (targetId === 'col' && (entryName === 'colossenses' || entryAbbrev === 'cl')) ||
+      (targetId === '1th' && (entryName === '1 tessalonicenses' || entryAbbrev === '1ts')) ||
+      (targetId === '2th' && (entryName === '2 tessalonicenses' || entryAbbrev === '2ts')) ||
+      (targetId === '1ti' && (entryName === '1 timóteo' || entryAbbrev === '1tm')) ||
+      (targetId === '2ti' && (entryName === '2 timóteo' || entryAbbrev === '2tm')) ||
+      (targetId === 'tit' && (entryName === 'tito' || entryAbbrev === 'tt')) ||
+      (targetId === 'phm' && (entryName === 'filemom' || entryAbbrev === 'fm')) ||
+      (targetId === 'heb' && (entryName === 'hebreus' || entryAbbrev === 'hb')) ||
+      (targetId === 'jas' && (entryName === 'tiago' || entryAbbrev === 'tg')) ||
+      (targetId === '1pe' && (entryName === '1 pedro' || entryAbbrev === '1pe')) ||
+      (targetId === '2pe' && (entryName === '2 pedro' || entryAbbrev === '2pe')) ||
+      (targetId === '1jo' && (entryName === '1 joão' || entryAbbrev === '1jo')) ||
+      (targetId === '2jo' && (entryName === '2 joão' || entryAbbrev === '2jo')) ||
+      (targetId === '3jo' && (entryName === '3 joão' || entryAbbrev === '3jo')) ||
+      (targetId === 'jud' && (entryName === 'judas' || entryAbbrev === 'jd')) ||
+      (targetId === 'rev' && (entryName === 'apocalipse' || entryAbbrev === 'ap'))
+    ) {
+      return entry;
+    }
+  }
+
+  // Fallback to searching if name contains or matches
+  for (const entry of githubData) {
+    if (!entry) continue;
+    const entryName = String(entry.name || '').trim().toLowerCase();
+    const targetName = targetBook.name.toLowerCase();
+    if (entryName.includes(targetName) || targetName.includes(entryName)) {
+      return entry;
+    }
+  }
+
+  return null;
+}
+
 export default async function handler(req: any, res: any) {
   const { bookId, chapter, version } = req.query;
 
@@ -177,18 +283,15 @@ export default async function handler(req: any, res: any) {
   try {
     const githubData = await getTranslationData(activeVersion);
     if (githubData && Array.isArray(githubData)) {
-      const bookIndex = BIBLE_BOOKS.findIndex(b => b.id === book.id);
-      if (bookIndex !== -1 && githubData[bookIndex]) {
-        const bookData = githubData[bookIndex];
-        if (bookData && Array.isArray(bookData.chapters)) {
-          const chapterData = bookData.chapters[chNum - 1];
-          if (Array.isArray(chapterData)) {
-            fetchedVerses = chapterData.map((text: string, idx: number) => ({
-              verse: idx + 1,
-              text: String(text || '').trim()
-            })).filter((v: any) => v.text.length > 0);
-            console.log(`Successfully fetched authentic scripture for ${book.name} ${chNum} (${activeVersion}) from GitHub database!`);
-          }
+      const bookData = findBookInGithubData(book.id, githubData);
+      if (bookData && Array.isArray(bookData.chapters)) {
+        const chapterData = bookData.chapters[chNum - 1];
+        if (Array.isArray(chapterData)) {
+          fetchedVerses = chapterData.map((text: string, idx: number) => ({
+            verse: idx + 1,
+            text: String(text || '').trim()
+          })).filter((v: any) => v.text.length > 0);
+          console.log(`Successfully fetched authentic scripture for ${book.name} ${chNum} (${activeVersion}) from GitHub database!`);
         }
       }
     }

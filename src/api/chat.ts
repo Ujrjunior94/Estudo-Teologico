@@ -93,3 +93,30 @@ export async function sendChatMessage(
     throw new Error(JSON.stringify(networkError));
   }
 }
+
+/**
+ * Request the backend to generate a 30-day theological study plan using Gemini.
+ * 
+ * @param theme The theological topic/theme
+ * @returns Promise<any> The generated plan object
+ */
+export async function generateTheologicalPlan(theme: string): Promise<any> {
+  try {
+    const response = await fetch('/api/generate-plan', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ theme }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Erro de resposta: Código ${response.status}`);
+    }
+
+    return await response.json();
+  } catch (err: any) {
+    console.error('Erro de conexão ao gerar plano:', err);
+    throw err;
+  }
+}

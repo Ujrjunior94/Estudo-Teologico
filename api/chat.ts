@@ -30,7 +30,7 @@ function generateOfflineResponse(messages: any[], option: string, errMessage: st
   const query = userQuery.toLowerCase().trim();
   
   // Try to match a bible reference in the user's message (e.g. "Colossenses 1:16" or "Gênesis 1:1")
-  const refRegex = /(?:Ref:\s*|exegese para\s*|versículo:\s*|^)?([0-9]?\s*[A-Za-fÀ-ÿ\s]+?)\s+(\d+)[:\s]+(\d+)/i;
+  const refRegex = /(?:Ref:\s*|exegese para\s*|versículo:\s*|^)?([0-9]?\s*[A-Za-zÀ-ÿ\s]+?)\s+(\d+)[:\s]+(\d+)/i;
   const match = userQuery.match(refRegex);
   
   let bibleText = "";

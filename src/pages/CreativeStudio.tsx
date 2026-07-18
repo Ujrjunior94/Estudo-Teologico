@@ -16,14 +16,15 @@ import {
   FileImage,
   Layers,
   AlertTriangle,
-  Award
+  Award,
+  Instagram
 } from 'lucide-react';
 
 export const CreativeStudio: React.FC = () => {
   const { addXp, unlockBadge } = useRewards();
 
   // Selected slide design settings
-  const [designType, setDesignType] = useState<'slide' | 'cover' | 'illustrated_verse'>('slide');
+  const [designType, setDesignType] = useState<'slide' | 'cover' | 'illustrated_verse' | 'instagram_post' | 'instagram_story' | 'instagram_sticker'>('slide');
   const [slideTitle, setSlideTitle] = useState('Ensino de Domingo');
   const [verseText, setVerseText] = useState('O Senhor é o meu pastor; nada me faltará.');
   const [verseRef, setVerseRef] = useState('Salmos 23:1');
@@ -63,13 +64,21 @@ export const CreativeStudio: React.FC = () => {
     setIsGeneratingBg(true);
     setGenerationError(null);
 
+    // Determine the optimal aspect ratio for Imagen based on the selected format
+    let apiAspectRatio = '16:9';
+    if (designType === 'instagram_story') {
+      apiAspectRatio = '9:16';
+    } else if (designType === 'instagram_post' || designType === 'instagram_sticker') {
+      apiAspectRatio = '1:1';
+    }
+
     try {
       const response = await fetch('/api/image', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           prompt: aiPrompt,
-          aspectRatio: '16:9'
+          aspectRatio: apiAspectRatio
         })
       });
 
@@ -133,10 +142,11 @@ export const CreativeStudio: React.FC = () => {
         currentBgValue,
         textColor,
         fontFamily,
-        textAlign
+        textAlign,
+        designType
       );
       
-      addXp(15, 'Slide Exportado como PNG');
+      addXp(15, `Arte (${designType.replace('_', ' ')}) Exportada como PNG 🎨`);
     } catch (err) {
       console.error('Falha ao exportar imagem:', err);
       alert('Não foi possível exportar a imagem. Verifique se o ativo de imagem de fundo foi gerado corretamente.');
@@ -166,6 +176,85 @@ export const CreativeStudio: React.FC = () => {
     addXp(5, 'Aplicou design salvo');
   };
 
+  // Live editor dynamic preview styling configurations
+  const getPreviewConfig = () => {
+    switch (designType) {
+      case 'instagram_post':
+        return {
+          aspectClass: 'aspect-square max-w-[420px] mx-auto w-full',
+          containerStyle: {
+            backgroundColor: bgType === 'color' ? bgColor : undefined,
+            backgroundImage: bgType === 'image' && bgImage ? `url(${bgImage})` : undefined,
+            backgroundSize: 'cover',
+            backgroundPosition: 'center'
+          },
+          hasOverlay: bgType === 'image' && !!bgImage,
+          hasBorder: true,
+          borderPadding: 'p-6',
+          titleSize: 'text-[11px] sm:text-xs',
+          textSize: 'text-base sm:text-lg md:text-xl',
+          refSize: 'text-xs sm:text-sm',
+          watermarkY: 'mb-1'
+        };
+      case 'instagram_story':
+        return {
+          aspectClass: 'aspect-[9/16] max-w-[280px] mx-auto w-full',
+          containerStyle: {
+            backgroundColor: bgType === 'color' ? bgColor : undefined,
+            backgroundImage: bgType === 'image' && bgImage ? `url(${bgImage})` : undefined,
+            backgroundSize: 'cover',
+            backgroundPosition: 'center'
+          },
+          hasOverlay: bgType === 'image' && !!bgImage,
+          hasBorder: true,
+          borderPadding: 'p-6 sm:p-8',
+          titleSize: 'text-[10px] sm:text-xs',
+          textSize: 'text-xs sm:text-sm md:text-base',
+          refSize: 'text-[10px] sm:text-xs',
+          watermarkY: 'mb-4'
+        };
+      case 'instagram_sticker':
+        return {
+          aspectClass: 'aspect-square max-w-[420px] mx-auto w-full',
+          // Checkerboard pattern representing transparency
+          containerStyle: {
+            backgroundImage: 'linear-gradient(45deg, #cbd5e1 25%, transparent 25%), linear-gradient(-45deg, #cbd5e1 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #cbd5e1 75%), linear-gradient(-45deg, transparent 75%, #cbd5e1 75%)',
+            backgroundSize: '16px 16px',
+            backgroundPosition: '0 0, 0 8px, 8px -8px, -8px 0px',
+            backgroundColor: '#f1f5f9'
+          },
+          hasOverlay: false,
+          hasBorder: false,
+          borderPadding: 'p-4',
+          titleSize: 'text-[10px] sm:text-xs',
+          textSize: 'text-xs sm:text-sm md:text-base',
+          refSize: 'text-[10px] sm:text-xs',
+          watermarkY: 'mb-1'
+        };
+      default: // slide, cover, illustrated_verse
+        return {
+          aspectClass: 'aspect-[16/9] w-full',
+          containerStyle: {
+            backgroundColor: bgType === 'color' ? bgColor : undefined,
+            backgroundImage: bgType === 'image' && bgImage ? `url(${bgImage})` : undefined,
+            backgroundSize: 'cover',
+            backgroundPosition: 'center'
+          },
+          hasOverlay: bgType === 'image' && !!bgImage,
+          hasBorder: true,
+          borderPadding: 'p-8',
+          titleSize: 'text-[10px] sm:text-xs',
+          textSize: 'text-lg sm:text-2xl md:text-3xl',
+          refSize: 'text-xs sm:text-base',
+          watermarkY: 'mb-1'
+        };
+    }
+  };
+
+  const preview = getPreviewConfig();
+  const isStickerBgLight = bgType === 'color' && (bgColor.toLowerCase() === '#ffffff' || bgColor.toLowerCase() === '#f8fafc' || bgColor.toLowerCase() === '#f1f5f9');
+  const stickerOutlineColor = isStickerBgLight ? 'border-slate-800' : 'border-white';
+
   return (
     <div className="space-y-6 animate-fade-in pb-20">
       {/* Page Title */}
@@ -174,7 +263,7 @@ export const CreativeStudio: React.FC = () => {
           Estúdio de Imagens e Slides
         </h2>
         <p className="text-sm text-slate-500 mt-1">
-          Crie lindas composições visuais para pregações, posts em mídias sociais e capas teológicas com a ajuda de Inteligência Artificial.
+          Crie lindas composições visuais para pregações, posts em mídias sociais, stories e adesivos do Instagram com a ajuda de Inteligência Artificial.
         </p>
       </div>
 
@@ -182,58 +271,95 @@ export const CreativeStudio: React.FC = () => {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         
         {/* Left Side: Editor Control Panel */}
-        <div className="lg:col-span-5 bg-white border border-slate-200 rounded-2xl p-6 shadow-sm space-y-6 max-h-[640px] overflow-y-auto pr-3">
+        <div className="lg:col-span-5 bg-white border border-slate-200 rounded-2xl p-6 shadow-sm space-y-6 max-h-[660px] overflow-y-auto pr-3">
           
-          {/* Design Type selector */}
-          <div>
-            <label className="text-xs font-mono text-slate-400 uppercase font-bold block mb-2">
-              Tipo de Arte
-            </label>
-            <div className="grid grid-cols-3 gap-2">
-              {(['slide', 'cover', 'illustrated_verse'] as const).map(type => (
-                <button
-                  key={type}
-                  onClick={() => setDesignType(type)}
-                  className={`py-2 text-xs font-semibold rounded-lg border text-center capitalize transition-all ${
-                    designType === type 
-                      ? 'bg-emerald-500/15 border-emerald-300 text-emerald-700' 
-                      : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
-                  }`}
-                >
-                  {type.replace('_', ' ')}
-                </button>
-              ))}
+          {/* Design Type selector categorized */}
+          <div className="space-y-4">
+            <div>
+              <label className="text-xs font-mono text-slate-400 uppercase font-bold block mb-1.5">
+                Formatos Clássicos (Slides/Capas - 16:9)
+              </label>
+              <div className="grid grid-cols-3 gap-2">
+                {[
+                  { id: 'slide', label: 'Slide' },
+                  { id: 'cover', label: 'Capa' },
+                  { id: 'illustrated_verse', label: 'Ilustrado' },
+                ].map(item => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => setDesignType(item.id as any)}
+                    className={`py-2 text-[11px] font-semibold rounded-lg border text-center transition-all cursor-pointer ${
+                      designType === item.id 
+                        ? 'bg-emerald-50 border-emerald-300 text-emerald-700 font-extrabold shadow-sm' 
+                        : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
+                    }`}
+                  >
+                    {item.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <label className="text-xs font-mono text-slate-400 uppercase font-bold flex items-center gap-1 block mb-1.5">
+                <Instagram size={13} className="text-rose-500" />
+                <span>Formatos Sociais (Instagram)</span>
+              </label>
+              <div className="grid grid-cols-3 gap-2">
+                {[
+                  { id: 'instagram_post', label: 'Post 1:1' },
+                  { id: 'instagram_story', label: 'Story 9:16' },
+                  { id: 'instagram_sticker', label: 'Adesivo' },
+                ].map(item => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => setDesignType(item.id as any)}
+                    className={`py-2 text-[11px] font-semibold rounded-lg border text-center transition-all cursor-pointer ${
+                      designType === item.id 
+                        ? 'bg-rose-50 border-rose-300 text-rose-700 font-extrabold shadow-sm' 
+                        : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
+                    }`}
+                  >
+                    {item.label}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
 
           {/* Texts inputs */}
-          <div className="space-y-3">
+          <div className="space-y-3 pt-2 border-t border-slate-100">
             <div>
-              <label className="text-xs font-mono text-slate-400 uppercase font-bold block mb-1">Título do Slide</label>
+              <label className="text-xs font-mono text-slate-400 uppercase font-bold block mb-1">Título / Cabeçalho</label>
               <input 
                 type="text" 
                 value={slideTitle}
                 onChange={(e) => setSlideTitle(e.target.value)}
+                placeholder="Ex: Teologia Reformada"
                 className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-emerald-500"
               />
             </div>
             
             <div>
-              <label className="text-xs font-mono text-slate-400 uppercase font-bold block mb-1">Escritura Bíblica (Texto)</label>
+              <label className="text-xs font-mono text-slate-400 uppercase font-bold block mb-1">Texto Bíblico / Citação</label>
               <textarea 
                 rows={3}
                 value={verseText}
                 onChange={(e) => setVerseText(e.target.value)}
+                placeholder="Citação ou versículo bíblico..."
                 className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs focus:outline-none focus:ring-1 focus:ring-emerald-500 font-serif"
               />
             </div>
 
             <div>
-              <label className="text-xs font-mono text-slate-400 uppercase font-bold block mb-1">Referência Bíblica</label>
+              <label className="text-xs font-mono text-slate-400 uppercase font-bold block mb-1">Referência / Autor</label>
               <input 
                 type="text" 
                 value={verseRef}
                 onChange={(e) => setVerseRef(e.target.value)}
+                placeholder="Ex: Romanos 12:2"
                 className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-emerald-500"
               />
             </div>
@@ -249,7 +375,7 @@ export const CreativeStudio: React.FC = () => {
                 <select 
                   value={fontFamily} 
                   onChange={(e) => setFontFamily(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-lg p-1.5 text-xs"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-lg p-1.5 text-xs focus:outline-none"
                 >
                   <option value="Inter">Inter (Sans)</option>
                   <option value="Space Grotesk">Space Grotesk (Tech)</option>
@@ -261,9 +387,9 @@ export const CreativeStudio: React.FC = () => {
               <div>
                 <label className="text-[10px] font-mono text-slate-400 block mb-1">Alinhamento</label>
                 <div className="flex bg-slate-100 p-1 rounded-lg border border-slate-200 justify-between">
-                  <button onClick={() => setTextAlign('left')} className={`p-1.5 rounded ${textAlign === 'left' ? 'bg-white shadow-sm' : ''}`}><AlignLeft size={12} /></button>
-                  <button onClick={() => setTextAlign('center')} className={`p-1.5 rounded ${textAlign === 'center' ? 'bg-white shadow-sm' : ''}`}><AlignCenter size={12} /></button>
-                  <button onClick={() => setTextAlign('right')} className={`p-1.5 rounded ${textAlign === 'right' ? 'bg-white shadow-sm' : ''}`}><AlignRight size={12} /></button>
+                  <button type="button" onClick={() => setTextAlign('left')} className={`p-1.5 rounded cursor-pointer ${textAlign === 'left' ? 'bg-white shadow-sm text-slate-950' : 'text-slate-400'}`}><AlignLeft size={12} /></button>
+                  <button type="button" onClick={() => setTextAlign('center')} className={`p-1.5 rounded cursor-pointer ${textAlign === 'center' ? 'bg-white shadow-sm text-slate-950' : 'text-slate-400'}`}><AlignCenter size={12} /></button>
+                  <button type="button" onClick={() => setTextAlign('right')} className={`p-1.5 rounded cursor-pointer ${textAlign === 'right' ? 'bg-white shadow-sm text-slate-950' : 'text-slate-400'}`}><AlignRight size={12} /></button>
                 </div>
               </div>
             </div>
@@ -277,7 +403,7 @@ export const CreativeStudio: React.FC = () => {
                   max={64} 
                   value={fontSize} 
                   onChange={(e) => setFontSize(Number(e.target.value))}
-                  className="w-full accent-emerald-500" 
+                  className="w-full accent-emerald-500 cursor-pointer" 
                 />
               </div>
 
@@ -302,16 +428,19 @@ export const CreativeStudio: React.FC = () => {
             
             <div className="flex bg-slate-100 p-1 rounded-lg border border-slate-200 mb-3 text-xs font-bold">
               <button 
+                type="button"
                 onClick={() => setBgType('color')}
-                className={`flex-1 py-1 rounded-md text-center transition-all ${
+                className={`flex-1 py-1 rounded-md text-center transition-all cursor-pointer ${
                   bgType === 'color' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'
                 }`}
               >
-                Cor Sólida
+                Cor Sólida / Adesivo
               </button>
               <button 
+                type="button"
+                disabled={designType === 'instagram_sticker'}
                 onClick={() => setBgType('image')}
-                className={`flex-1 py-1 rounded-md text-center transition-all ${
+                className={`flex-1 py-1 rounded-md text-center transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed ${
                   bgType === 'image' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'
                 }`}
               >
@@ -319,7 +448,7 @@ export const CreativeStudio: React.FC = () => {
               </button>
             </div>
 
-            {bgType === 'color' ? (
+            {bgType === 'color' || designType === 'instagram_sticker' ? (
               <div className="flex items-center gap-2">
                 <input 
                   type="color" 
@@ -327,22 +456,23 @@ export const CreativeStudio: React.FC = () => {
                   onChange={(e) => setBgColor(e.target.value)}
                   className="w-8 h-8 rounded-lg cursor-pointer bg-transparent border-0"
                 />
-                <span className="text-xs font-mono">Fundo Sólido: {bgColor}</span>
+                <span className="text-xs font-mono">Fundo do Card/Adesivo: {bgColor}</span>
               </div>
             ) : (
               <div className="space-y-2">
                 <div className="flex gap-2">
                   <input 
                     type="text" 
-                    placeholder="Ex: Templo grego sob pôr do sol aquarela"
+                    placeholder="Ex: Templo antigo sob pôr do sol aquarela"
                     value={aiPrompt}
                     onChange={(e) => setAiPrompt(e.target.value)}
                     className="flex-1 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none"
                   />
                   <button
+                    type="button"
                     onClick={handleGenerateAiBg}
                     disabled={isGeneratingBg || !aiPrompt.trim()}
-                    className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg px-3 py-1.5 text-xs font-bold flex items-center gap-1.5 disabled:opacity-50"
+                    className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg px-3 py-1.5 text-xs font-bold flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
                   >
                     {isGeneratingBg ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
                     <span>Gerar</span>
@@ -351,10 +481,10 @@ export const CreativeStudio: React.FC = () => {
                 {bgImage ? (
                   <div className="text-[10px] text-emerald-600 font-mono flex items-center gap-1 bg-emerald-50 p-2 rounded-lg border border-emerald-100">
                     <FileImage size={12} />
-                    <span>Imagem gerada por IA carregada no fundo.</span>
+                    <span>Imagem gerada ({designType === 'instagram_story' ? '9:16' : '1:1'}) por IA carregada.</span>
                   </div>
                 ) : (
-                  <p className="text-[10px] text-slate-400">Digite um tema bíblico e clique em Gerar para produzir um fundo por IA.</p>
+                  <p className="text-[10px] text-slate-400 font-sans">Digite um tema bíblico e clique em Gerar para produzir um fundo sob medida via Imagen 3.</p>
                 )}
               </div>
             )}
@@ -366,77 +496,127 @@ export const CreativeStudio: React.FC = () => {
           
           {/* Main design preview card */}
           <div 
-            style={{ 
-              backgroundColor: bgType === 'color' ? bgColor : undefined,
-              backgroundImage: bgType === 'image' && bgImage ? `url(${bgImage})` : undefined,
-              backgroundSize: 'cover',
-              backgroundPosition: 'center'
-            }}
-            className="w-full aspect-[16/9] rounded-2xl border border-slate-200 shadow-xl overflow-hidden relative flex flex-col justify-between p-8 text-white relative"
+            style={preview.containerStyle}
+            className={`${preview.aspectClass} rounded-2xl border border-slate-200 shadow-xl overflow-hidden relative flex flex-col justify-between text-white relative`}
           >
-            {/* Background darkening overlay for better readability on images */}
-            {bgType === 'image' && bgImage && (
-              <div className="absolute inset-0 bg-black/40 z-0" />
+            {designType === 'instagram_sticker' ? (
+              // Physically styled sticker card centered inside transparency frame
+              <div 
+                style={{ 
+                  backgroundColor: bgType === 'color' ? bgColor : '#1E293B',
+                }}
+                className={`w-[85%] h-[85%] m-auto rounded-[32px] border-[8px] ${stickerOutlineColor} shadow-2xl relative p-6 flex flex-col justify-between text-white overflow-hidden`}
+              >
+                {/* Thin inner decoration border for premium sticker look */}
+                <div className="absolute inset-2 border border-white/10 rounded-[24px] pointer-events-none" />
+                
+                {/* Sticker Header */}
+                <div className="text-center z-10 pt-2">
+                  <span className="text-[9px] font-mono tracking-widest text-white/60 uppercase font-bold">
+                    {slideTitle || 'Estúdio PRO'}
+                  </span>
+                </div>
+
+                {/* Sticker Quote */}
+                <div className="text-center z-10 max-w-[90%] mx-auto my-auto">
+                  {verseText && (
+                    <blockquote 
+                      style={{ 
+                        fontFamily: fontFamily === 'Inter' ? '"Inter", sans-serif' : fontFamily === 'Space Grotesk' ? '"Space Grotesk", sans-serif' : fontFamily === 'JetBrains Mono' ? '"JetBrains Mono", monospace' : 'Georgia, serif',
+                        color: textColor
+                      }}
+                      className={`${preview.textSize} italic font-light leading-snug tracking-wide`}
+                    >
+                      "{verseText}"
+                    </blockquote>
+                  )}
+
+                  {verseRef && (
+                    <cite 
+                      style={{ color: textColor }}
+                      className="not-italic font-display font-semibold block mt-3 text-xs uppercase tracking-wider opacity-90"
+                    >
+                      {verseRef}
+                    </cite>
+                  )}
+                </div>
+
+                {/* Sticker Footer */}
+                <div className="text-center text-[8px] font-mono text-white/40 tracking-wider z-10 pb-1">
+                  ESTUDO BÍBLICO PRO 🕊... ADESIVO
+                </div>
+              </div>
+            ) : (
+              // Standard slide / post / story format preview
+              <div className={`w-full h-full flex flex-col justify-between ${preview.borderPadding} relative`}>
+                {/* Background darkening overlay */}
+                {preview.hasOverlay && (
+                  <div className="absolute inset-0 bg-black/45 z-0" />
+                )}
+
+                {/* Decorative Inner border */}
+                {preview.hasBorder && (
+                  <div className="absolute inset-4 border border-white/10 rounded-xl z-0 pointer-events-none" />
+                )}
+
+                {/* Watermark header */}
+                <div className="flex items-center justify-between z-10">
+                  <span className="text-[10px] font-mono tracking-widest text-white/50 uppercase font-bold">
+                    {slideTitle || 'Estudo Teológico'}
+                  </span>
+                  <span className="text-[10px] font-mono text-white/40">Estúdio PRO</span>
+                </div>
+
+                {/* Scripture center block */}
+                <div className="z-10 py-6 max-w-[85%] mx-auto text-center w-full my-auto" style={{ textAlign }}>
+                  {verseText && (
+                    <blockquote 
+                      style={{ 
+                        fontFamily: fontFamily === 'Inter' ? '"Inter", sans-serif' : fontFamily === 'Space Grotesk' ? '"Space Grotesk", sans-serif' : fontFamily === 'JetBrains Mono' ? '"JetBrains Mono", monospace' : 'Georgia, serif',
+                        color: textColor
+                      }}
+                      className={`${preview.textSize} italic font-light leading-snug tracking-wide`}
+                    >
+                      "{verseText}"
+                    </blockquote>
+                  )}
+
+                  {verseRef && (
+                    <cite 
+                      style={{ color: textColor }}
+                      className={`not-italic font-display font-semibold block mt-4 ${preview.refSize} opacity-85 uppercase tracking-wider`}
+                    >
+                      {verseRef}
+                    </cite>
+                  )}
+                </div>
+
+                {/* Watermark footer */}
+                <div className={`text-center text-[8px] font-mono text-white/30 tracking-wider z-10 ${preview.watermarkY}`}>
+                  ESTUDO BÍBLICO E TEOLÓGICO PRO 🕊️
+                </div>
+              </div>
             )}
-
-            {/* Decorative Inner border */}
-            <div className="absolute inset-4 border border-white/10 rounded-xl z-0 pointer-events-none" />
-
-            {/* Watermark header */}
-            <div className="flex items-center justify-between z-10">
-              <span className="text-[10px] font-mono tracking-widest text-white/50 uppercase font-bold">
-                {slideTitle || 'Estudo Teológico'}
-              </span>
-              <span className="text-[10px] font-mono text-white/40">Estúdio PRO</span>
-            </div>
-
-            {/* Scripture center block */}
-            <div className="z-10 py-6 max-w-[85%] mx-auto text-center" style={{ textAlign }}>
-              {verseText && (
-                <blockquote 
-                  style={{ 
-                    fontFamily: fontFamily === 'Inter' ? '"Inter", sans-serif' : fontFamily === 'Space Grotesk' ? '"Space Grotesk", sans-serif' : fontFamily === 'JetBrains Mono' ? '"JetBrains Mono", monospace' : 'Georgia, serif',
-                    fontSize: `${fontSize}px`,
-                    color: textColor
-                  }}
-                  className="font-serif italic font-light leading-snug tracking-wide"
-                >
-                  "{verseText}"
-                </blockquote>
-              )}
-
-              {verseRef && (
-                <cite 
-                  style={{ color: textColor }}
-                  className="not-italic font-display font-semibold block mt-4 text-base opacity-85 uppercase tracking-wider"
-                >
-                  {verseRef}
-                </cite>
-              )}
-            </div>
-
-            {/* Watermark footer */}
-            <div className="text-center text-[8px] font-mono text-white/30 tracking-wider z-10">
-              ESTUDO BÍBLICO E TEOLÓGICO PRO 🕊️
-            </div>
           </div>
 
           {/* Action and saving control bars */}
           <div className="flex gap-4 justify-end">
             <button
+              type="button"
               onClick={handleSaveDesign}
-              className="px-5 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 text-xs font-semibold flex items-center gap-1.5 shadow-sm transition-all"
+              className="px-5 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 text-xs font-semibold flex items-center gap-1.5 shadow-sm transition-all cursor-pointer"
             >
               <Layers size={14} />
               <span>Salvar no Estúdio</span>
             </button>
 
             <button
+              type="button"
               onClick={handleExportPNG}
-              className="px-6 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold flex items-center gap-1.5 shadow-md transition-all"
+              className="px-6 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold flex items-center gap-1.5 shadow-md transition-all cursor-pointer"
             >
               <Download size={14} />
-              <span>Exportar Slide PNG</span>
+              <span>Exportar PNG ({designType === 'instagram_sticker' ? 'Adesivo Transparente' : designType === 'instagram_story' ? 'Story 9:16' : designType === 'instagram_post' ? 'Post 1:1' : 'Slide 16:9'})</span>
             </button>
           </div>
 

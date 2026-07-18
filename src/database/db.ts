@@ -271,6 +271,19 @@ export const dbService = {
   async getAllCachedChapters(): Promise<CachedChapter[]> {
     return runTx<CachedChapter[]>('bible_cache', 'readonly', (store) => store.getAll());
   },
+  async clearBibleCache(): Promise<void> {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+      try {
+        const tx = db.transaction('bible_cache', 'readwrite');
+        tx.objectStore('bible_cache').clear();
+        tx.oncomplete = () => resolve();
+        tx.onerror = (e) => reject(e);
+      } catch (err) {
+        reject(err);
+      }
+    });
+  },
   
   // BOOKMARKS CRUD
   async getBookmarks(): Promise<Bookmark[]> {

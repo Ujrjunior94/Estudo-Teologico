@@ -11,6 +11,7 @@ import chatHandler from './api/chat';
 import verseHandler from './api/verse';
 import dictionaryHandler from './api/dictionary';
 import imageHandler from './api/image';
+import generatePlanHandler from './api/generate-plan';
 
 const app = express();
 const PORT = 3000;
@@ -57,6 +58,7 @@ app.post('/api/chat', makeExpressAdaptor(chatHandler));
 app.get('/api/verse', makeExpressAdaptor(verseHandler));
 app.get('/api/dictionary', makeExpressAdaptor(dictionaryHandler));
 app.post('/api/image', makeExpressAdaptor(imageHandler));
+app.post('/api/generate-plan', makeExpressAdaptor(generatePlanHandler));
 
 // Dummy endpoints for planner, user, and settings to ensure serverless route mapping
 app.get('/api/planner', (req, res) => {

@@ -1,0 +1,34 @@
+{
+  "version": "1.0",
+  "collections": {
+    "users": {
+      "description": "User document root",
+      "subcollections": {
+        "notes": {
+          "description": "Theological notes and studies"
+        },
+        "favorites": {
+          "description": "Saved favorite verses"
+        },
+        "highlights": {
+          "description": "Highlighted verses"
+        },
+        "plans": {
+          "description": "Bible reading plans progress"
+        },
+        "bookmarks": {
+          "description": "Reading bookmarks"
+        },
+        "prayers": {
+          "description": "Prayer requests and logs"
+        },
+        "designs": {
+          "description": "Illustrated verses and creative designs"
+        },
+        "metadata": {
+          "description": "Singleton progress documents: rewards, progress"
+        }
+      }
+    }
+  }
+}

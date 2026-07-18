@@ -14,6 +14,7 @@ import { SavedItems } from './pages/SavedItems';
 import { Plans } from './pages/Plans';
 import { Devotionals } from './pages/Devotionals';
 import { Prayers } from './pages/Prayers';
+import { Profile } from './pages/Profile';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<string>('dashboard');
@@ -124,6 +125,8 @@ export default function App() {
         );
       case 'prayers':
         return <Prayers />;
+      case 'profile':
+        return <Profile />;
       default:
         return <Dashboard setActiveTab={setActiveTab} setSelectedBibleRef={setSelectedBibleRef} />;
     }

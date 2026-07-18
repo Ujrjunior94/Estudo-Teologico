@@ -74,6 +74,18 @@ async function runTx<T>(
   });
 }
 
+// Handler functions for real-time cloud sync
+type CloudSaveFn = (segment: string, id: string, data: any) => Promise<void>;
+type CloudDelFn = (segment: string, id: string) => Promise<void>;
+
+let cloudSave: CloudSaveFn | null = null;
+let cloudDelete: CloudDelFn | null = null;
+
+export function registerCloudHandlers(onSave: CloudSaveFn, onDelete: CloudDelFn) {
+  cloudSave = onSave;
+  cloudDelete = onDelete;
+}
+
 export const dbService = {
   // NOTES CRUD
   async getNotes(): Promise<Note[]> {
@@ -81,9 +93,15 @@ export const dbService = {
   },
   async saveNote(note: Note): Promise<void> {
     await runTx<void>('notes', 'readwrite', (store) => store.put(note));
+    if (cloudSave) {
+      cloudSave('notes', note.id, note).catch(err => console.warn('Realtime cloud save failed for note:', err));
+    }
   },
   async deleteNote(id: string): Promise<void> {
     await runTx<void>('notes', 'readwrite', (store) => store.delete(id));
+    if (cloudDelete) {
+      cloudDelete('notes', id).catch(err => console.warn('Realtime cloud delete failed for note:', err));
+    }
   },
 
   // FAVORITES CRUD
@@ -92,9 +110,15 @@ export const dbService = {
   },
   async saveFavorite(fav: Favorite): Promise<void> {
     await runTx<void>('favorites', 'readwrite', (store) => store.put(fav));
+    if (cloudSave) {
+      cloudSave('favorites', fav.id, fav).catch(err => console.warn('Realtime cloud save failed for favorite:', err));
+    }
   },
   async deleteFavorite(id: string): Promise<void> {
     await runTx<void>('favorites', 'readwrite', (store) => store.delete(id));
+    if (cloudDelete) {
+      cloudDelete('favorites', id).catch(err => console.warn('Realtime cloud delete failed for favorite:', err));
+    }
   },
 
   // HIGHLIGHTS CRUD
@@ -103,9 +127,15 @@ export const dbService = {
   },
   async saveHighlight(hl: Highlight): Promise<void> {
     await runTx<void>('highlights', 'readwrite', (store) => store.put(hl));
+    if (cloudSave) {
+      cloudSave('highlights', hl.id, hl).catch(err => console.warn('Realtime cloud save failed for highlight:', err));
+    }
   },
   async deleteHighlight(id: string): Promise<void> {
     await runTx<void>('highlights', 'readwrite', (store) => store.delete(id));
+    if (cloudDelete) {
+      cloudDelete('highlights', id).catch(err => console.warn('Realtime cloud delete failed for highlight:', err));
+    }
   },
 
   // READING PLANS CRUD
@@ -114,9 +144,15 @@ export const dbService = {
   },
   async savePlan(plan: ReadingPlan): Promise<void> {
     await runTx<void>('plans', 'readwrite', (store) => store.put(plan));
+    if (cloudSave) {
+      cloudSave('plans', plan.id, plan).catch(err => console.warn('Realtime cloud save failed for plan:', err));
+    }
   },
   async deletePlan(id: string): Promise<void> {
     await runTx<void>('plans', 'readwrite', (store) => store.delete(id));
+    if (cloudDelete) {
+      cloudDelete('plans', id).catch(err => console.warn('Realtime cloud delete failed for plan:', err));
+    }
   },
 
   // REWARDS Persistence
@@ -154,6 +190,9 @@ export const dbService = {
   },
   async saveRewardState(state: RewardState): Promise<void> {
     await runTx<void>('rewards', 'readwrite', (store) => store.put({ ...state, id: 'current' }));
+    if (cloudSave) {
+      cloudSave('metadata', 'rewards', state).catch(err => console.warn('Realtime cloud save failed for rewards:', err));
+    }
   },
 
   // CREATIVE DESIGNS CRUD
@@ -162,9 +201,15 @@ export const dbService = {
   },
   async saveDesign(design: CreativeDesign): Promise<void> {
     await runTx<void>('designs', 'readwrite', (store) => store.put(design));
+    if (cloudSave) {
+      cloudSave('designs', design.id, design).catch(err => console.warn('Realtime cloud save failed for design:', err));
+    }
   },
   async deleteDesign(id: string): Promise<void> {
     await runTx<void>('designs', 'readwrite', (store) => store.delete(id));
+    if (cloudDelete) {
+      cloudDelete('designs', id).catch(err => console.warn('Realtime cloud delete failed for design:', err));
+    }
   },
 
   // READING PROGRESS CRUD
@@ -200,6 +245,9 @@ export const dbService = {
   },
   async saveReadingProgress(progress: ReadingProgress): Promise<void> {
     await runTx<void>('reading_progress', 'readwrite', (store) => store.put({ ...progress, id: 'current' }));
+    if (cloudSave) {
+      cloudSave('metadata', 'progress', progress).catch(err => console.warn('Realtime cloud save failed for reading progress:', err));
+    }
   },
 
   // BIBLE CACHE CRUD
@@ -230,9 +278,15 @@ export const dbService = {
   },
   async saveBookmark(bookmark: Bookmark): Promise<void> {
     await runTx<void>('bookmarks', 'readwrite', (store) => store.put(bookmark));
+    if (cloudSave) {
+      cloudSave('bookmarks', bookmark.id, bookmark).catch(err => console.warn('Realtime cloud save failed for bookmark:', err));
+    }
   },
   async deleteBookmark(id: string): Promise<void> {
     await runTx<void>('bookmarks', 'readwrite', (store) => store.delete(id));
+    if (cloudDelete) {
+      cloudDelete('bookmarks', id).catch(err => console.warn('Realtime cloud delete failed for bookmark:', err));
+    }
   },
 
   // PRAYERS CRUD
@@ -241,9 +295,15 @@ export const dbService = {
   },
   async savePrayer(prayer: PrayerRequest): Promise<void> {
     await runTx<void>('prayers', 'readwrite', (store) => store.put(prayer));
+    if (cloudSave) {
+      cloudSave('prayers', prayer.id, prayer).catch(err => console.warn('Realtime cloud save failed for prayer:', err));
+    }
   },
   async deletePrayer(id: string): Promise<void> {
     await runTx<void>('prayers', 'readwrite', (store) => store.delete(id));
+    if (cloudDelete) {
+      cloudDelete('prayers', id).catch(err => console.warn('Realtime cloud delete failed for prayer:', err));
+    }
   },
 
   async clearAllData(): Promise<void> {

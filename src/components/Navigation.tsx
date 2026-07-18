@@ -14,9 +14,12 @@ import {
   BookMarked,
   Heart,
   HeartHandshake,
-  Smartphone
+  Smartphone,
+  Cloud
 } from 'lucide-react';
 import { useRewards } from '../contexts/RewardContext';
+import { auth } from '../services/firebase';
+import { User as FirebaseUser } from 'firebase/auth';
 
 interface NavigationProps {
   activeTab: string;
@@ -27,8 +30,13 @@ export const Navigation: React.FC<NavigationProps> = ({ activeTab, setActiveTab 
   const { state } = useRewards();
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [showInstallBtn, setShowInstallBtn] = useState(false);
+  const [currentUser, setCurrentUser] = useState<FirebaseUser | null>(auth.currentUser);
 
   useEffect(() => {
+    const unsubscribe = auth.onAuthStateChanged((user) => {
+      setCurrentUser(user);
+    });
+
     const handleBeforeInstallPrompt = (e: Event) => {
       e.preventDefault();
       setDeferredPrompt(e);
@@ -43,6 +51,7 @@ export const Navigation: React.FC<NavigationProps> = ({ activeTab, setActiveTab 
 
     return () => {
       window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+      unsubscribe();
     };
   }, []);
 
@@ -64,7 +73,8 @@ export const Navigation: React.FC<NavigationProps> = ({ activeTab, setActiveTab 
     { id: 'creative', label: 'Estúdio', icon: Palette },
     { id: 'saved', label: 'Estudos', icon: FolderHeart },
     { id: 'plans', label: 'Planos', icon: Compass },
-    { id: 'prayers', label: 'Orações', icon: HeartHandshake }
+    { id: 'prayers', label: 'Orações', icon: HeartHandshake },
+    { id: 'profile', label: 'Nuvem', icon: Cloud }
   ];
 
   return (
@@ -144,20 +154,27 @@ export const Navigation: React.FC<NavigationProps> = ({ activeTab, setActiveTab 
         )}
 
         {/* Footer */}
-        <div className="p-4 border-t border-slate-800 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-emerald-400 font-bold text-xs">
-              <User size={14} />
+        <button 
+          onClick={() => setActiveTab('profile')}
+          className="w-full p-4 border-t border-slate-800 flex items-center justify-between text-left hover:bg-slate-800/25 transition-colors cursor-pointer"
+        >
+          <div className="flex items-center gap-2 overflow-hidden">
+            <div className="w-8 h-8 shrink-0 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-emerald-400 font-bold text-xs">
+              {currentUser ? (currentUser.displayName ? currentUser.displayName[0].toUpperCase() : currentUser.email?.[0].toUpperCase() || 'U') : <User size={14} />}
             </div>
-            <div>
-              <p className="text-xs font-medium text-slate-300">Teólogo PRO</p>
-              <p className="text-[10px] font-mono text-slate-500">Membro Offline</p>
+            <div className="overflow-hidden">
+              <p className="text-xs font-medium text-slate-300 truncate">
+                {currentUser ? (currentUser.displayName || 'Usuário Pro') : 'Teólogo PRO'}
+              </p>
+              <p className="text-[10px] font-mono text-slate-500 truncate">
+                {currentUser ? 'Sincronizado' : 'Membro Offline'}
+              </p>
             </div>
           </div>
-          <div className="text-emerald-500/80">
+          <div className="text-emerald-500/80 shrink-0">
             <Award size={18} />
           </div>
-        </div>
+        </button>
       </aside>
 
       {/* Bottom Tab Bar for Mobile */}

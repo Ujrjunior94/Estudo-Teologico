@@ -180,13 +180,15 @@ export default async function handler(req: any, res: any) {
       const bookIndex = BIBLE_BOOKS.findIndex(b => b.id === book.id);
       if (bookIndex !== -1 && githubData[bookIndex]) {
         const bookData = githubData[bookIndex];
-        const chapterData = bookData.chapters[chNum - 1];
-        if (Array.isArray(chapterData)) {
-          fetchedVerses = chapterData.map((text: string, idx: number) => ({
-            verse: idx + 1,
-            text: String(text).trim()
-          })).filter((v: any) => v.text.length > 0);
-          console.log(`Successfully fetched authentic scripture for ${book.name} ${chNum} (${activeVersion}) from GitHub database!`);
+        if (bookData && Array.isArray(bookData.chapters)) {
+          const chapterData = bookData.chapters[chNum - 1];
+          if (Array.isArray(chapterData)) {
+            fetchedVerses = chapterData.map((text: string, idx: number) => ({
+              verse: idx + 1,
+              text: String(text || '').trim()
+            })).filter((v: any) => v.text.length > 0);
+            console.log(`Successfully fetched authentic scripture for ${book.name} ${chNum} (${activeVersion}) from GitHub database!`);
+          }
         }
       }
     }
@@ -211,7 +213,7 @@ Exemplo de formato:
 Responda apenas com o JSON válido.`;
 
         const aiPromise = ai.models.generateContent({
-          model: 'gemini-2.0-flash',
+          model: 'gemini-3.5-flash',
           contents: [prompt],
           config: {
             responseMimeType: 'application/json',

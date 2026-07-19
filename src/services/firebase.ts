@@ -1,52 +1,37 @@
-import { initializeApp, getApp, getApps } from 'firebase/app';
 import { 
-  getAuth, 
+  auth, 
+  googleProvider, 
   signInWithEmailAndPassword, 
   createUserWithEmailAndPassword, 
   signOut, 
   sendPasswordResetEmail, 
-  onAuthStateChanged,
-  GoogleAuthProvider,
-  signInWithPopup,
-  deleteUser,
-  updateProfile,
-  User as FirebaseUser
-} from 'firebase/auth';
+  updateProfile, 
+  deleteUser, 
+  onAuthStateChanged, 
+  signInWithPopup 
+} from '../lib/firebase/auth';
 import { 
-  initializeFirestore, 
+  db, 
   doc, 
   setDoc, 
   getDoc, 
   collection, 
   getDocs, 
   deleteDoc, 
-  writeBatch,
-  query,
-  where,
-  onSnapshot
-} from 'firebase/firestore';
+  writeBatch, 
+  query, 
+  where, 
+  onSnapshot, 
+  OperationType, 
+  handleFirestoreError 
+} from '../lib/firebase/firestore';
+import type { FirestoreErrorInfo } from '../lib/firebase/firestore';
+
+export { auth, db, googleProvider, OperationType, handleFirestoreError };
+export type { FirestoreErrorInfo };
+
 import { dbService } from '../database/db';
 import { Note, Favorite, Highlight, ReadingPlan, RewardState, CreativeDesign, ReadingProgress, Bookmark, PrayerRequest } from '../types';
-
-// Real configuration from firebase-applet-config.json
-const firebaseConfig = {
-  projectId: "gen-lang-client-0167985385",
-  appId: "1:710269410392:web:a26f36e79c3db99e5cbe2d",
-  apiKey: "AIzaSyDu4aGG5w7VKzl99YA4k3w_sEQJ8nKfZbA",
-  authDomain: "gen-lang-client-0167985385.firebaseapp.com",
-  firestoreDatabaseId: "ai-studio-bibletheologypro-0095cf70-1f02-42e2-9e42-51561c4671b3",
-  storageBucket: "gen-lang-client-0167985385.firebasestorage.app",
-  messagingSenderId: "710269410392",
-  measurementId: ""
-};
-
-// Initialize Firebase App
-const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
-export const auth = getAuth(app);
-export const db = initializeFirestore(app, {
-  experimentalForceLongPolling: true,
-}, firebaseConfig.firestoreDatabaseId);
-export const googleProvider = new GoogleAuthProvider();
 
 // Custom UI events or notifications for synchronization
 let onSyncStatusChangeCallback: ((status: 'idle' | 'syncing' | 'success' | 'error', message?: string) => void) | null = null;
@@ -358,9 +343,13 @@ export async function saveToCloudRealtime(userId: string, pathSegment: string, i
   try {
     const docRef = doc(db, 'users', userId, pathSegment, id);
     await setDoc(docRef, data);
-  } catch (err) {
-    console.warn(`[Sync] Realtime save to cloud failed for ${pathSegment}/${id}:`, err);
-    registerOfflineSync();
+  } catch (err: any) {
+    if (err?.code === 'permission-denied') {
+      handleFirestoreError(err, OperationType.WRITE, `users/${userId}/${pathSegment}/${id}`);
+    } else {
+      console.warn(`[Sync] Realtime save to cloud failed for ${pathSegment}/${id}:`, err);
+      registerOfflineSync();
+    }
   }
 }
 
@@ -375,9 +364,13 @@ export async function deleteFromCloudRealtime(userId: string, pathSegment: strin
   try {
     const docRef = doc(db, 'users', userId, pathSegment, id);
     await deleteDoc(docRef);
-  } catch (err) {
-    console.warn(`[Sync] Realtime delete from cloud failed for ${pathSegment}/${id}:`, err);
-    registerOfflineSync();
+  } catch (err: any) {
+    if (err?.code === 'permission-denied') {
+      handleFirestoreError(err, OperationType.DELETE, `users/${userId}/${pathSegment}/${id}`);
+    } else {
+      console.warn(`[Sync] Realtime delete from cloud failed for ${pathSegment}/${id}:`, err);
+      registerOfflineSync();
+    }
   }
 }
 
@@ -438,6 +431,11 @@ export function setupRealtimeListeners(userId: string, onUpdate?: () => void) {
     }
   }, (error) => {
     console.error('[Firebase Realtime] Error in notes snapshot listener:', error);
+    try {
+      handleFirestoreError(error, OperationType.GET, `users/${userId}/notes`);
+    } catch (e) {
+      // Catch to prevent crashing listeners unexpectedly if unneeded
+    }
   });
 
   // 2. Real-time Plans listener
@@ -466,6 +464,11 @@ export function setupRealtimeListeners(userId: string, onUpdate?: () => void) {
     }
   }, (error) => {
     console.error('[Firebase Realtime] Error in plans snapshot listener:', error);
+    try {
+      handleFirestoreError(error, OperationType.GET, `users/${userId}/plans`);
+    } catch (e) {
+      // Catch to prevent crashing listeners unexpectedly if unneeded
+    }
   });
 }
 

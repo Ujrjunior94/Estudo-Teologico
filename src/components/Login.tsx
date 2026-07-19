@@ -44,7 +44,9 @@ export const Login: React.FC<LoginProps> = ({ onContinueOffline }) => {
       await addXp(30, 'Sincronização via Google Iniciada! 🌐');
     } catch (err: any) {
       console.error(err);
-      if (err.code !== 'auth/popup-closed-by-user') {
+      if (err.code === 'auth/unauthorized-domain') {
+        setError('O login via Google não está configurado para este domínio. Por favor, adicione este domínio no painel do Firebase Authentication ou use login por e-mail.');
+      } else if (err.code !== 'auth/popup-closed-by-user') {
         setError('Erro ao autenticar com o Google: ' + (err.message || err));
       }
     } finally {

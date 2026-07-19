@@ -24,9 +24,10 @@ import { User as FirebaseUser } from 'firebase/auth';
 interface NavigationProps {
   activeTab: string;
   setActiveTab: (tab: string) => void;
+  onOpenQuickPrayer: () => void;
 }
 
-export const Navigation: React.FC<NavigationProps> = ({ activeTab, setActiveTab }) => {
+export const Navigation: React.FC<NavigationProps> = ({ activeTab, setActiveTab, onOpenQuickPrayer }) => {
   const { state } = useRewards();
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [showInstallBtn, setShowInstallBtn] = useState(false);
@@ -112,6 +113,17 @@ export const Navigation: React.FC<NavigationProps> = ({ activeTab, setActiveTab 
           </div>
         </div>
 
+        {/* Quick Prayer Trigger Button for Desktop */}
+        <div className="px-4 mt-4 shrink-0">
+          <button 
+            onClick={onOpenQuickPrayer}
+            className="w-full bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-slate-950 font-sans font-bold text-xs py-3.5 px-4 rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/10 cursor-pointer transition-all active:scale-95 hover:shadow-emerald-500/15"
+          >
+            <Heart size={14} className="fill-slate-950 text-slate-950 animate-pulse" />
+            <span>Clamor Rápido</span>
+          </button>
+        </div>
+
         {/* Nav Links */}
         <nav className="flex-1 px-4 py-6 space-y-1 overflow-y-auto">
           {navItems.map((item) => {
@@ -176,6 +188,17 @@ export const Navigation: React.FC<NavigationProps> = ({ activeTab, setActiveTab 
           </div>
         </button>
       </aside>
+
+      {/* Floating Action Button for Mobile */}
+      <div className="md:hidden fixed bottom-20 right-4 z-45">
+        <button
+          onClick={onOpenQuickPrayer}
+          className="w-12 h-12 bg-gradient-to-r from-emerald-500 to-teal-600 rounded-full flex items-center justify-center text-slate-950 shadow-xl shadow-emerald-500/30 active:scale-95 transition-all cursor-pointer border border-emerald-400/20"
+          title="Clamor Rápido"
+        >
+          <Heart size={18} className="fill-slate-950 text-slate-950 animate-pulse" />
+        </button>
+      </div>
 
       {/* Bottom Tab Bar for Mobile */}
       <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-slate-900 border-t border-slate-800 flex items-center py-2 px-3 z-50 overflow-x-auto gap-4 scrollbar-none justify-between">

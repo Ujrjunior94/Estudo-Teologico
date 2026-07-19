@@ -7,6 +7,7 @@ import { dbService } from './database/db';
 import { User as FirebaseUser } from 'firebase/auth';
 import { auth, setupRealtimeListeners, clearRealtimeListeners, syncAllData } from './services/firebase';
 import { Login } from './components/Login';
+import { QuickPrayer } from './components/QuickPrayer';
 
 // Pages
 import { Dashboard } from './pages/Dashboard';
@@ -23,6 +24,7 @@ import { Profile } from './pages/Profile';
 export default function App() {
   const [activeTab, setActiveTab] = useState<string>('dashboard');
   const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const [isQuickPrayerOpen, setIsQuickPrayerOpen] = useState(false);
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [showInstallBanner, setShowInstallBanner] = useState(false);
 
@@ -233,7 +235,7 @@ export default function App() {
       <div className="flex flex-col md:flex-row min-h-screen bg-slate-50 text-slate-800 font-sans">
         
         {/* Navigation Sidebar/BottomBar */}
-        <Navigation activeTab={activeTab} setActiveTab={setActiveTab} />
+        <Navigation activeTab={activeTab} setActiveTab={setActiveTab} onOpenQuickPrayer={() => setIsQuickPrayerOpen(true)} />
 
         {/* Main Viewport Content area */}
         <main className="flex-1 p-6 md:p-8 overflow-y-auto max-w-7xl mx-auto w-full relative">
@@ -284,6 +286,9 @@ export default function App() {
 
         {/* Global Gamification Alerts Notification */}
         <NotificationToast />
+
+        {/* Quick Prayer Modal Overlay */}
+        <QuickPrayer isOpen={isQuickPrayerOpen} onClose={() => setIsQuickPrayerOpen(false)} />
       </div>
     </RewardProvider>
   );

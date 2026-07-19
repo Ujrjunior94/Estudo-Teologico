@@ -1,9 +1,142 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Restrict access so users can only read and write their own data
-    match /users/{userId}/{document=**} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
+    
+    // 1. Global Safety Net: Default Deny Catch-all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Primitive Helpers
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // Entity-Specific Validation Helpers
+    function isValidNote(data) {
+      return data.id is string && data.id.size() <= 128
+        && (!('title' in data) || (data.title is string && data.title.size() <= 500))
+        && (!('content' in data) || (data.content is string && data.content.size() <= 30000));
+    }
+
+    function isValidFavorite(data) {
+      return data.id is string && data.id.size() <= 128
+        && (!('bookId' in data) || (data.bookId is string && data.bookId.size() <= 12))
+        && (!('bookName' in data) || (data.bookName is string && data.bookName.size() <= 100))
+        && (!('chapter' in data) || (data.chapter is int))
+        && (!('verse' in data) || (data.verse is int))
+        && (!('text' in data) || (data.text is string && data.text.size() <= 5000));
+    }
+
+    function isValidHighlight(data) {
+      return data.id is string && data.id.size() <= 128
+        && (!('bookId' in data) || (data.bookId is string && data.bookId.size() <= 12))
+        && (!('bookName' in data) || (data.bookName is string && data.bookName.size() <= 100))
+        && (!('chapter' in data) || (data.chapter is int))
+        && (!('verse' in data) || (data.verse is int))
+        && (!('color' in data) || (data.color is string && data.color.size() <= 50))
+        && (!('text' in data) || (data.text is string && data.text.size() <= 5000));
+    }
+
+    function isValidPlan(data) {
+      return data.id is string && data.id.size() <= 128
+        && (!('title' in data) || (data.title is string && data.title.size() <= 500))
+        && (!('completedDays' in data) || (data.completedDays is list))
+        && (!('completedVerses' in data) || (data.completedVerses is list));
+    }
+
+    function isValidBookmark(data) {
+      return data.id is string && data.id.size() <= 128
+        && (!('bookId' in data) || (data.bookId is string && data.bookId.size() <= 12))
+        && (!('chapter' in data) || (data.chapter is int))
+        && (!('verse' in data) || (data.verse is int));
+    }
+
+    function isValidPrayer(data) {
+      return data.id is string && data.id.size() <= 128
+        && (!('title' in data) || (data.title is string && data.title.size() <= 1000))
+        && (!('description' in data) || (data.description is string && data.description.size() <= 10000))
+        && (!('status' in data) || (data.status is string && data.status.size() <= 50));
+    }
+
+    function isValidDesign(data) {
+      return data.id is string && data.id.size() <= 128
+        && (!('imageUrl' in data) || (data.imageUrl is string && data.imageUrl.size() <= 2048));
+    }
+
+    // 2. Main Users Authorization Scope
+    match /users/{userId} {
+      allow read, write: if isOwner(userId);
+
+      // Notes Subcollection
+      match /notes/{noteId} {
+        allow read, delete: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidId(noteId) && isValidNote(incoming());
+        allow update: if isOwner(userId) && isValidNote(incoming());
+      }
+
+      // Favorites Subcollection
+      match /favorites/{favoriteId} {
+        allow read, delete: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidId(favoriteId) && isValidFavorite(incoming());
+        allow update: if isOwner(userId) && isValidFavorite(incoming());
+      }
+
+      // Highlights Subcollection
+      match /highlights/{highlightId} {
+        allow read, delete: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidId(highlightId) && isValidHighlight(incoming());
+        allow update: if isOwner(userId) && isValidHighlight(incoming());
+      }
+
+      // Plans Subcollection
+      match /plans/{planId} {
+        allow read, delete: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidId(planId) && isValidPlan(incoming());
+        allow update: if isOwner(userId) && isValidPlan(incoming());
+      }
+
+      // Bookmarks Subcollection
+      match /bookmarks/{bookmarkId} {
+        allow read, delete: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidId(bookmarkId) && isValidBookmark(incoming());
+        allow update: if isOwner(userId) && isValidBookmark(incoming());
+      }
+
+      // Prayers Subcollection
+      match /prayers/{prayerId} {
+        allow read, delete: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidId(prayerId) && isValidPrayer(incoming());
+        allow update: if isOwner(userId) && isValidPrayer(incoming());
+      }
+
+      // Designs Subcollection
+      match /designs/{designId} {
+        allow read, delete: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidId(designId) && isValidDesign(incoming());
+        allow update: if isOwner(userId) && isValidDesign(incoming());
+      }
+
+      // Metadata Subcollection (rewards, progress singletons)
+      match /metadata/{metaDocId} {
+        allow read, write: if isOwner(userId) && isValidId(metaDocId);
+      }
     }
   }
 }

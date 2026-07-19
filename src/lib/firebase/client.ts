@@ -1,28 +1,72 @@
 import { initializeApp, getApp, getApps } from 'firebase/app';
+import { getAuth, GoogleAuthProvider } from 'firebase/auth';
+import { initializeFirestore, setLogLevel } from 'firebase/firestore';
+import { getStorage } from 'firebase/storage';
 
-// Safe environment variable retriever for both Vite and Node contexts
-const getEnv = (key: string): string => {
-  if (typeof window !== 'undefined') {
-    // Client-side environment check (Vite)
-    const viteEnv = ((import.meta as any).env || {});
-    return viteEnv[`VITE_${key}`] || viteEnv[`NEXT_PUBLIC_${key}`] || viteEnv[key] || '';
-  }
-  // Server-side environment check (Vite dev server / Node)
-  const nodeEnv = (typeof process !== 'undefined' ? process.env : {}) as Record<string, string>;
-  return nodeEnv[`VITE_${key}`] || nodeEnv[`NEXT_PUBLIC_${key}`] || nodeEnv[key] || '';
-};
-
-// Config resolved dynamically from Env, fallback to real project credentials
+// Config resolved statically from Env (enabling Vite compile-time replacement), prioritizing NEXT_PUBLIC_FIREBASE_*
 export const firebaseConfig = {
-  apiKey: getEnv('FIREBASE_API_KEY') || "AIzaSyBi8m7l2UTZmNZe2iQITlFrBVzv18Hc01U",
-  authDomain: getEnv('FIREBASE_AUTH_DOMAIN') || "estudo-teologico001.firebaseapp.com",
-  projectId: getEnv('FIREBASE_PROJECT_ID') || "estudo-teologico001",
-  storageBucket: getEnv('FIREBASE_STORAGE_BUCKET') || "estudo-teologico001.firebasestorage.app",
-  messagingSenderId: getEnv('FIREBASE_MESSAGING_SENDER_ID') || "612570871474",
-  appId: getEnv('FIREBASE_APP_ID') || "1:612570871474:web:f2d6c9f43f8d610da7bbab",
-  measurementId: getEnv('FIREBASE_MEASUREMENT_ID') || "G-RTKC6DY6ZN",
-  firestoreDatabaseId: getEnv('FIREBASE_FIRESTORE_DATABASE_ID') || "(default)",
+  apiKey: (typeof import.meta !== 'undefined' && (import.meta as any).env?.NEXT_PUBLIC_FIREBASE_API_KEY) || 
+          (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_FIREBASE_API_KEY) || 
+          (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_FIREBASE_API_KEY) ||
+          (typeof process !== 'undefined' && process.env?.VITE_FIREBASE_API_KEY) ||
+          "AIzaSyBi8m7l2UTZmNZe2iQITlFrBVzv18Hc01U",
+
+  authDomain: (typeof import.meta !== 'undefined' && (import.meta as any).env?.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN) || 
+              (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_FIREBASE_AUTH_DOMAIN) || 
+              (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN) ||
+              (typeof process !== 'undefined' && process.env?.VITE_FIREBASE_AUTH_DOMAIN) ||
+              "estudo-teologico001.firebaseapp.com",
+
+  projectId: (typeof import.meta !== 'undefined' && (import.meta as any).env?.NEXT_PUBLIC_FIREBASE_PROJECT_ID) || 
+             (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_FIREBASE_PROJECT_ID) || 
+             (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_FIREBASE_PROJECT_ID) ||
+             (typeof process !== 'undefined' && process.env?.VITE_FIREBASE_PROJECT_ID) ||
+             "estudo-teologico001",
+
+  storageBucket: (typeof import.meta !== 'undefined' && (import.meta as any).env?.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET) || 
+                 (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_FIREBASE_STORAGE_BUCKET) || 
+                 (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET) ||
+                 (typeof process !== 'undefined' && process.env?.VITE_FIREBASE_STORAGE_BUCKET) ||
+                 "estudo-teologico001.firebasestorage.app",
+
+  messagingSenderId: (typeof import.meta !== 'undefined' && (import.meta as any).env?.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID) || 
+                      (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_FIREBASE_MESSAGING_SENDER_ID) || 
+                      (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID) ||
+                      (typeof process !== 'undefined' && process.env?.VITE_FIREBASE_MESSAGING_SENDER_ID) ||
+                      "612570871474",
+
+  appId: (typeof import.meta !== 'undefined' && (import.meta as any).env?.NEXT_PUBLIC_FIREBASE_APP_ID) || 
+         (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_FIREBASE_APP_ID) || 
+         (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_FIREBASE_APP_ID) ||
+         (typeof process !== 'undefined' && process.env?.VITE_FIREBASE_APP_ID) ||
+         "1:612570871474:web:f2d6c9f43f8d610da7bbab",
+
+  measurementId: (typeof import.meta !== 'undefined' && (import.meta as any).env?.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID) || 
+                  (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_FIREBASE_MEASUREMENT_ID) || 
+                  (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID) ||
+                  (typeof process !== 'undefined' && process.env?.VITE_FIREBASE_MEASUREMENT_ID) ||
+                  "G-RTKC6DY6ZN",
+
+  firestoreDatabaseId: (typeof import.meta !== 'undefined' && (import.meta as any).env?.NEXT_PUBLIC_FIREBASE_FIRESTORE_DATABASE_ID) || 
+                        (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_FIREBASE_FIRESTORE_DATABASE_ID) || 
+                        (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_FIREBASE_FIRESTORE_DATABASE_ID) ||
+                        (typeof process !== 'undefined' && process.env?.VITE_FIREBASE_FIRESTORE_DATABASE_ID) ||
+                        "(default)",
 };
 
 // Singleton initialization pattern
 export const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
+
+// Initialize and export auth, db and storage for unified application usage
+export const auth = getAuth(app);
+export const googleProvider = new GoogleAuthProvider();
+googleProvider.addScope('email');
+googleProvider.addScope('profile');
+
+// Suppress normal offline logging warnings & initialize db
+setLogLevel('error');
+export const db = initializeFirestore(app, {
+  experimentalForceLongPolling: true,
+}, firebaseConfig.firestoreDatabaseId);
+
+export const storage = getStorage(app);

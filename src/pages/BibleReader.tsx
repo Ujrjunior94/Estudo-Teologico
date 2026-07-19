@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { List as WindowList } from 'react-window';
 import { BIBLE_BOOKS, getChapterVersesCount, getGeneratedVerseText, AUTHENTIC_PASSAGES } from '../database/bibleMetadata';
 import { DAILY_VERSES } from '../database/dailyVerses';
 import { HIGHLIGHT_COLORS, SYSTEM_BADGES } from '../constants';
@@ -72,6 +73,15 @@ export const BibleReader: React.FC<BibleReaderProps> = ({ selectedBibleRef, setS
   const [bookmarks, setBookmarks] = useState<BibleBookmark[]>([]);
   const [showBookmarkModal, setShowBookmarkModal] = useState(false);
   const [bookmarkLabel, setBookmarkLabel] = useState('');
+
+  // List virtualization using react-window
+  const listRef = useRef<any>(null);
+
+  useEffect(() => {
+    if (listRef.current) {
+      listRef.current.resetAfterIndex(0);
+    }
+  }, [verses, activeVersion]);
 
   const loadBookmarks = async () => {
     try {
@@ -630,6 +640,49 @@ export const BibleReader: React.FC<BibleReaderProps> = ({ selectedBibleRef, setS
     addXp(10, 'Pesquisa Bíblica Realizada');
   };
 
+  // List virtualization parameters using react-window
+  const getRowHeight = (index: number) => {
+    const verseText = verses[index]?.text || '';
+    const charsPerLine = 60;
+    const lines = Math.max(1, Math.ceil(verseText.length / charsPerLine));
+    return lines * 28 + 24; 
+  };
+
+  const Row = ({ index, style }: { index: number; style: React.CSSProperties }) => {
+    const v = verses[index];
+    if (!v) return null;
+    const isSelected = selectedVerse === v.verse;
+    const hlColor = highlights[v.verse];
+    const hasNotes = notes[v.verse] && notes[v.verse].length > 0;
+    const isFav = favorites[v.verse];
+
+    return (
+      <div style={style} className="pr-1">
+        <p 
+          onClick={() => setSelectedVerse(isSelected ? null : v.verse)}
+          style={{ backgroundColor: hlColor ? `${hlColor}50` : undefined }}
+          className={`relative p-2 rounded-lg cursor-pointer transition-all hover:bg-slate-50 select-none ${
+            isSelected ? 'ring-2 ring-emerald-500 bg-emerald-50/20' : ''
+          }`}
+        >
+          {/* Indicators for Notes / Favorites */}
+          <span className="absolute -left-3 top-3 flex gap-0.5">
+            {isFav && <span className="w-1.5 h-1.5 bg-rose-500 rounded-full" title="Favoritado" />}
+            {hasNotes && <span className="w-1.5 h-1.5 bg-blue-500 rounded-full" title="Possui notas" />}
+          </span>
+
+          <sup className="font-mono text-xs font-bold text-emerald-600 mr-2 select-none">
+            {v.verse}
+          </sup>
+          
+          <span className="font-serif font-light text-slate-800 tracking-wide">
+            {v.text}
+          </span>
+        </p>
+      </div>
+    );
+  };
+
   return (
     <div className="space-y-6 animate-fade-in pb-24">
       {/* Header Selectors */}
@@ -810,38 +863,17 @@ export const BibleReader: React.FC<BibleReaderProps> = ({ selectedBibleRef, setS
               </div>
 
               {/* Verses Container */}
-              <div className="space-y-6 text-slate-800 leading-relaxed font-serif text-lg pb-16">
-                {verses.map((v) => {
-                  const isSelected = selectedVerse === v.verse;
-                  const hlColor = highlights[v.verse];
-                  const hasNotes = notes[v.verse] && notes[v.verse].length > 0;
-                  const isFav = favorites[v.verse];
-
-                  return (
-                    <p 
-                      key={v.verse}
-                      onClick={() => setSelectedVerse(isSelected ? null : v.verse)}
-                      style={{ backgroundColor: hlColor ? `${hlColor}50` : undefined }}
-                      className={`relative p-2 rounded-lg cursor-pointer transition-all hover:bg-slate-50 select-none ${
-                        isSelected ? 'ring-2 ring-emerald-500 bg-emerald-50/20' : ''
-                      }`}
-                    >
-                      {/* Indicators for Notes / Favorites */}
-                      <span className="absolute -left-3 top-3 flex gap-0.5">
-                        {isFav && <span className="w-1.5 h-1.5 bg-rose-500 rounded-full" title="Favoritado" />}
-                        {hasNotes && <span className="w-1.5 h-1.5 bg-blue-500 rounded-full" title="Possui notas" />}
-                      </span>
-
-                      <sup className="font-mono text-xs font-bold text-emerald-600 mr-2 select-none">
-                        {v.verse}
-                      </sup>
-                      
-                      <span className="font-serif font-light text-slate-800 tracking-wide">
-                        {v.text}
-                      </span>
-                    </p>
-                  );
-                })}
+              <div className="relative text-slate-800 font-serif text-lg pb-4 h-[600px] w-full">
+                <WindowList<any>
+                  key={`${activeBook.id}-${activeChapter}-${activeVersion}`}
+                  listRef={listRef}
+                  rowCount={verses.length}
+                  rowHeight={getRowHeight}
+                  rowComponent={Row as any}
+                  rowProps={{}}
+                  style={{ height: 600 }}
+                  className="overflow-y-auto pr-1"
+                />
               </div>
 
               {/* Quick chapter switches */}

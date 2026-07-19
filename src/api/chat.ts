@@ -1,4 +1,5 @@
 import { ChatMessage } from '../types';
+import { normalizeReferencesInText } from '../services/aiService';
 
 export interface ApiError {
   code: string;
@@ -19,13 +20,18 @@ export async function sendChatMessage(
   option: 'exegese' | 'hermeneutica' | 'devocional' | 'mapa_mental'
 ): Promise<string> {
   try {
+    const normalizedMessages = messages.map(msg => ({
+      ...msg,
+      content: normalizeReferencesInText(msg.content)
+    }));
+
     const response = await fetch('/api/chat', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        messages,
+        messages: normalizedMessages,
         option,
       }),
     });
@@ -102,12 +108,13 @@ export async function sendChatMessage(
  */
 export async function generateTheologicalPlan(theme: string): Promise<any> {
   try {
+    const normalizedTheme = normalizeReferencesInText(theme);
     const response = await fetch('/api/generate-plan', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ theme }),
+      body: JSON.stringify({ theme: normalizedTheme }),
     });
 
     if (!response.ok) {

@@ -1,6 +1,5 @@
-import { getStorage } from 'firebase/storage';
-import { app } from './client';
+import { storage } from './client';
 
-export const storage = getStorage(app);
+export { storage };
 
 export { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';

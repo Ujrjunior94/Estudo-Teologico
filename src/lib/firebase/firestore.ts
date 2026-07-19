@@ -1,13 +1,7 @@
-import { initializeFirestore, setLogLevel } from 'firebase/firestore';
-import { app, firebaseConfig } from './client';
+import { db } from './client';
 import { auth } from './auth';
 
-// Suppress normal offline logging warnings
-setLogLevel('error');
-
-export const db = initializeFirestore(app, {
-  experimentalForceLongPolling: true,
-}, firebaseConfig.firestoreDatabaseId);
+export { db };
 
 export enum OperationType {
   CREATE = 'create',

@@ -44,13 +44,21 @@ function generateOfflineResponse(messages: any[], option: string, errMessage: st
     const chapter = parseInt(match[2], 10);
     const verse = parseInt(match[3], 10);
     
-    const book = BIBLE_BOOKS.find(b => 
-      b.id.toLowerCase() === bookNameOrId || 
-      b.name.toLowerCase() === bookNameOrId || 
-      b.abbrev.toLowerCase() === bookNameOrId ||
-      bookNameOrId.includes(b.name.toLowerCase()) ||
-      b.name.toLowerCase().includes(bookNameOrId)
-    );
+    const normalizeStr = (str: string) => 
+      str ? str.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim() : '';
+
+    const cleanQuery = normalizeStr(bookNameOrId);
+
+    const book = BIBLE_BOOKS.find(b => {
+      const bId = normalizeStr(b.id);
+      const bName = normalizeStr(b.name);
+      const bAbbrev = normalizeStr(b.abbrev);
+      return bId === cleanQuery || 
+             bName === cleanQuery || 
+             bAbbrev === cleanQuery ||
+             cleanQuery.includes(bName) ||
+             bName.includes(cleanQuery);
+    });
     
     if (book) {
       bookName = book.name;

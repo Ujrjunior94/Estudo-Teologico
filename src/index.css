@@ -7,6 +7,47 @@
   --font-mono: "JetBrains Mono", ui-monospace, monospace;
 }
 
+:root {
+  /* Default: Classic Seminary */
+  --bg-app: #fbf9f4;
+  --bg-card: #ffffff;
+  --text-primary: #1e1b18;
+  --text-secondary: #6e6458;
+  --border-color: #e5e0d4;
+  --color-accent: #047857;
+  --color-accent-bg: #f0fdf4;
+}
+
+.theme-classic {
+  --bg-app: #fbf9f4;
+  --bg-card: #ffffff;
+  --text-primary: #1e1b18;
+  --text-secondary: #6e6458;
+  --border-color: #e5e0d4;
+  --color-accent: #047857;
+  --color-accent-bg: #f0fdf4;
+}
+
+.theme-minimalist {
+  --bg-app: #f8fafc;
+  --bg-card: #ffffff;
+  --text-primary: #0f172a;
+  --text-secondary: #64748b;
+  --border-color: #e2e8f0;
+  --color-accent: #0f172a;
+  --color-accent-bg: #f1f5f9;
+}
+
+.theme-midnight {
+  --bg-app: #0b0f19;
+  --bg-card: #151c2c;
+  --text-primary: #f8fafc;
+  --text-secondary: #94a3b8;
+  --border-color: #222f46;
+  --color-accent: #10b981;
+  --color-accent-bg: #0b241e;
+}
+
 /* Custom Scrollbar */
 ::-webkit-scrollbar {
   width: 6px;

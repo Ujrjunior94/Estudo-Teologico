@@ -8,6 +8,7 @@ import { User as FirebaseUser } from 'firebase/auth';
 import { auth, setupRealtimeListeners, clearRealtimeListeners, syncAllData } from './services/firebase';
 import { Login } from './components/Login';
 import { QuickPrayer } from './components/QuickPrayer';
+import { useTheme } from './contexts/ThemeContext';
 
 // Pages
 import { Dashboard } from './pages/Dashboard';
@@ -22,6 +23,7 @@ import { Prayers } from './pages/Prayers';
 import { Profile } from './pages/Profile';
 
 export default function App() {
+  const { themeConfig } = useTheme();
   const [activeTab, setActiveTab] = useState<string>('dashboard');
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [isQuickPrayerOpen, setIsQuickPrayerOpen] = useState(false);
@@ -232,7 +234,7 @@ export default function App() {
 
   return (
     <RewardProvider>
-      <div className="flex flex-col md:flex-row min-h-screen bg-slate-50 text-slate-800 font-sans">
+      <div className={`flex flex-col md:flex-row min-h-screen ${themeConfig.bg} ${themeConfig.text} font-sans transition-colors duration-300`}>
         
         {/* Navigation Sidebar/BottomBar */}
         <Navigation activeTab={activeTab} setActiveTab={setActiveTab} onOpenQuickPrayer={() => setIsQuickPrayerOpen(true)} />

@@ -26,7 +26,8 @@ import {
   ShieldCheck,
   AlertCircle,
   RefreshCw,
-  DownloadCloud
+  DownloadCloud,
+  Heart
 } from 'lucide-react';
 import { formatShareText } from '../utils';
 
@@ -71,6 +72,7 @@ export const BibleReader: React.FC<BibleReaderProps> = ({ selectedBibleRef, setS
 
   // Bookmark state & methods
   const [bookmarks, setBookmarks] = useState<BibleBookmark[]>([]);
+  const [verseBookmarks, setVerseBookmarks] = useState<Record<number, boolean>>({});
   const [showBookmarkModal, setShowBookmarkModal] = useState(false);
   const [bookmarkLabel, setBookmarkLabel] = useState('');
 
@@ -87,6 +89,14 @@ export const BibleReader: React.FC<BibleReaderProps> = ({ selectedBibleRef, setS
     try {
       const stored = await dbService.getBookmarks();
       setBookmarks(stored.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
+      
+      const currentVerseBookmarks: Record<number, boolean> = {};
+      stored.forEach(b => {
+        if (b.bookId === activeBook.id && b.chapter === activeChapter && b.verse !== undefined) {
+          currentVerseBookmarks[b.verse] = true;
+        }
+      });
+      setVerseBookmarks(currentVerseBookmarks);
     } catch (err) {
       console.error('Error loading bookmarks:', err);
     }
@@ -94,7 +104,7 @@ export const BibleReader: React.FC<BibleReaderProps> = ({ selectedBibleRef, setS
 
   useEffect(() => {
     loadBookmarks();
-  }, []);
+  }, [activeBook, activeChapter]);
 
   const handleSaveBookmark = async () => {
     const mainEl = document.querySelector('main');
@@ -136,11 +146,64 @@ export const BibleReader: React.FC<BibleReaderProps> = ({ selectedBibleRef, setS
   const handleDeleteBookmark = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
     try {
+      const targetB = bookmarks.find(b => b.id === id);
       await dbService.deleteBookmark(id);
       setBookmarks(prev => prev.filter(b => b.id !== id));
+      if (targetB && targetB.verse !== undefined && targetB.bookId === activeBook.id && targetB.chapter === activeChapter) {
+        setVerseBookmarks(prev => ({ ...prev, [targetB.verse!]: false }));
+      }
     } catch (err) {
       console.error('Error deleting bookmark:', err);
     }
+  };
+
+  const toggleVerseBookmark = async () => {
+    if (selectedVerse === null) return;
+
+    const bookmarkId = `bookmark_verse_${activeBook.id}_${activeChapter}_${selectedVerse}_${activeVersion}`;
+    const isBookmarked = verseBookmarks[selectedVerse];
+
+    try {
+      if (isBookmarked) {
+        // Find existing bookmark
+        const existingB = bookmarks.find(
+          b => b.bookId === activeBook.id && 
+               b.chapter === activeChapter && 
+               b.verse === selectedVerse && 
+               b.version === activeVersion
+        );
+        if (existingB) {
+          await dbService.deleteBookmark(existingB.id);
+          setBookmarks(prev => prev.filter(b => b.id !== existingB.id));
+        } else {
+          // If not in state, delete using the guessed ID
+          await dbService.deleteBookmark(bookmarkId);
+        }
+        setVerseBookmarks(prev => ({ ...prev, [selectedVerse]: false }));
+        addXp(5, 'Removeu marcador de versículo');
+      } else {
+        const verseText = verses.find(v => v.verse === selectedVerse)?.text || '';
+        const newBookmark: BibleBookmark = {
+          id: bookmarkId,
+          bookId: activeBook.id,
+          bookName: activeBook.name,
+          chapter: activeChapter,
+          verse: selectedVerse,
+          version: activeVersion,
+          scrollPosition: 0,
+          highlights: [],
+          createdAt: new Date().toISOString(),
+          label: `Marcador: ${activeBook.name} ${activeChapter}:${selectedVerse}`
+        };
+        await dbService.saveBookmark(newBookmark);
+        setBookmarks(prev => [newBookmark, ...prev]);
+        setVerseBookmarks(prev => ({ ...prev, [selectedVerse]: true }));
+        addXp(15, 'Marcou versículo');
+      }
+    } catch (err) {
+      console.error('Error toggling verse bookmark:', err);
+    }
+    setSelectedVerse(null);
   };
 
   const handleApplyBookmark = async (b: BibleBookmark) => {
@@ -161,13 +224,20 @@ export const BibleReader: React.FC<BibleReaderProps> = ({ selectedBibleRef, setS
       setHighlights(targetHls);
     }
 
-    // Scroll container to saved height
-    setTimeout(() => {
-      const mainEl = document.querySelector('main');
-      if (mainEl) {
-        mainEl.scrollTo({ top: b.scrollPosition, behavior: 'smooth' });
-      }
-    }, 450);
+    if (b.verse !== undefined) {
+      setSelectedVerse(b.verse);
+      setTimeout(() => {
+        listRef.current?.scrollToItem(b.verse! - 1, "center");
+      }, 450);
+    } else {
+      // Scroll container to saved height
+      setTimeout(() => {
+        const mainEl = document.querySelector('main');
+        if (mainEl) {
+          mainEl.scrollTo({ top: b.scrollPosition, behavior: 'smooth' });
+        }
+      }, 450);
+    }
 
     addXp(10, 'Restaurou posição e destaques');
   };
@@ -318,6 +388,15 @@ export const BibleReader: React.FC<BibleReaderProps> = ({ selectedBibleRef, setS
         }
       });
       setNotes(currentNotes);
+
+      const allBookmarks = await dbService.getBookmarks();
+      const currentVerseBookmarks: Record<number, boolean> = {};
+      allBookmarks.forEach(b => {
+        if (b.bookId === activeBook.id && b.chapter === activeChapter && b.verse !== undefined) {
+          currentVerseBookmarks[b.verse] = true;
+        }
+      });
+      setVerseBookmarks(currentVerseBookmarks);
     }
     loadData();
     setSelectedVerse(null);
@@ -655,6 +734,7 @@ export const BibleReader: React.FC<BibleReaderProps> = ({ selectedBibleRef, setS
     const hlColor = highlights[v.verse];
     const hasNotes = notes[v.verse] && notes[v.verse].length > 0;
     const isFav = favorites[v.verse];
+    const isBookmarked = verseBookmarks[v.verse];
 
     return (
       <div style={style} className="pr-1">
@@ -665,14 +745,17 @@ export const BibleReader: React.FC<BibleReaderProps> = ({ selectedBibleRef, setS
             isSelected ? 'ring-2 ring-emerald-500 bg-emerald-50/20' : ''
           }`}
         >
-          {/* Indicators for Notes / Favorites */}
-          <span className="absolute -left-3 top-3 flex gap-0.5">
+          {/* Indicators for Notes / Favorites / Bookmarks */}
+          <span className="absolute -left-3 top-3 flex flex-col gap-1">
             {isFav && <span className="w-1.5 h-1.5 bg-rose-500 rounded-full" title="Favoritado" />}
+            {isBookmarked && <span className="w-1.5 h-1.5 bg-amber-500 rounded-full" title="Marcador" />}
             {hasNotes && <span className="w-1.5 h-1.5 bg-blue-500 rounded-full" title="Possui notas" />}
           </span>
 
-          <sup className="font-mono text-xs font-bold text-emerald-600 mr-2 select-none">
+          <sup className="font-mono text-xs font-bold text-emerald-600 mr-2 select-none inline-flex items-center gap-0.5">
             {v.verse}
+            {isFav && <span className="text-rose-500 text-[10px]" title="Favoritado">♥</span>}
+            {isBookmarked && <span className="text-amber-500 text-[10px]" title="Marcador">★</span>}
           </sup>
           
           <span className="font-serif font-light text-slate-800 tracking-wide">
@@ -926,7 +1009,7 @@ export const BibleReader: React.FC<BibleReaderProps> = ({ selectedBibleRef, setS
                   >
                     <div className="flex justify-between items-start gap-1">
                       <span className="text-xs font-mono font-bold text-emerald-700">
-                        {b.bookName} {b.chapter} ({b.version})
+                        {b.bookName} {b.chapter}{b.verse !== undefined ? `:${b.verse}` : ''} ({b.version})
                       </span>
                       <button 
                         onClick={(e) => handleDeleteBookmark(b.id, e)}
@@ -953,7 +1036,7 @@ export const BibleReader: React.FC<BibleReaderProps> = ({ selectedBibleRef, setS
                     )}
 
                     <div className="mt-2.5 flex items-center justify-between text-[9px] font-mono text-slate-400 border-t border-slate-100 pt-1.5">
-                      <span>Posição Salva</span>
+                      <span>{b.verse !== undefined ? 'Marcador de Versículo' : 'Posição Salva'}</span>
                       <span className="bg-emerald-100 text-emerald-800 font-bold px-1 py-0.5 rounded">IR ➔</span>
                     </div>
                   </div>
@@ -1122,12 +1205,22 @@ export const BibleReader: React.FC<BibleReaderProps> = ({ selectedBibleRef, setS
           <div className="flex items-center gap-3">
             <button 
               onClick={toggleFavorite}
-              title="Adicionar aos Favoritos"
+              title={favorites[selectedVerse] ? "Remover dos Favoritos" : "Adicionar aos Favoritos"}
               className={`p-2 rounded-lg hover:bg-slate-800 transition-all ${
                 favorites[selectedVerse] ? 'text-rose-400' : 'text-slate-400 hover:text-slate-200'
               }`}
             >
-              <Bookmark size={16} />
+              <Heart size={16} className={favorites[selectedVerse] ? 'fill-current' : ''} />
+            </button>
+
+            <button 
+              onClick={toggleVerseBookmark}
+              title={verseBookmarks[selectedVerse] ? "Remover Marcador de Versículo" : "Marcar Versículo"}
+              className={`p-2 rounded-lg hover:bg-slate-800 transition-all ${
+                verseBookmarks[selectedVerse] ? 'text-amber-400' : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              <Bookmark size={16} className={verseBookmarks[selectedVerse] ? 'fill-current' : ''} />
             </button>
 
             <button 

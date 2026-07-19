@@ -138,6 +138,7 @@ export interface Bookmark {
   bookId: string;
   bookName: string;
   chapter: number;
+  verse?: number;
   version: 'ARA' | 'NVI' | 'KJV';
   scrollPosition: number; // percentage or scrollTop
   highlights: Highlight[]; // highlights stored for this book/chapter at bookmark time

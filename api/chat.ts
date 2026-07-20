@@ -1,3 +1,4 @@
+import { Router } from 'express';
 import { GoogleGenAI } from '@google/genai';
 import { BIBLE_BOOKS, getGeneratedVerseText } from '../src/database/bibleMetadata';
 import { DAILY_VERSES } from '../src/database/dailyVerses';
@@ -310,13 +311,9 @@ ${topicBody}
 *Estudo offline de alta fidelidade elaborado para apoiar e enriquecer suas pesquisas teológicas sistemáticas diárias.*`;
 }
 
-// Serverless Handler interface matching Vercel/Netlify standard
-export default async function handler(req: any, res: any) {
-  if (req.method !== 'POST') {
-    res.setHeader('Allow', ['POST']);
-    return res.status(405).json({ error: 'Method Not Allowed' });
-  }
+const router = Router();
 
+router.post('/', async (req: any, res: any) => {
   const { messages, option } = req.body;
 
   if (!messages || !Array.isArray(messages)) {
@@ -393,4 +390,6 @@ Sempre forneça respostas estruturadas em Markdown, ricas em referências bíbli
     const fallbackText = generateOfflineResponse(messages, option || 'exegese', friendlyErrMessage);
     return res.status(200).json({ text: fallbackText });
   }
-}
+});
+
+export default router;

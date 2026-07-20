@@ -1,3 +1,4 @@
+import { Router } from 'express';
 import { GoogleGenAI } from '@google/genai';
 
 let aiClient: GoogleGenAI | null = null;
@@ -20,12 +21,9 @@ function getAIClient() {
   return aiClient;
 }
 
-export default async function handler(req: any, res: any) {
-  if (req.method !== 'POST') {
-    res.setHeader('Allow', ['POST']);
-    return res.status(405).json({ error: 'Method Not Allowed' });
-  }
+const router = Router();
 
+router.post('/', async (req: any, res: any) => {
   const { prompt, aspectRatio } = req.body;
 
   if (!prompt) {
@@ -89,4 +87,6 @@ export default async function handler(req: any, res: any) {
       message: friendlyMessage
     });
   }
-}
+});
+
+export default router;

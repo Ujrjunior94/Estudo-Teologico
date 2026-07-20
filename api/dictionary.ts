@@ -1,3 +1,4 @@
+import { Router } from 'express';
 import { DICTIONARY_TERMS, searchDictionaryTerms } from '../src/database/dictionaryData';
 import { GoogleGenAI, Type } from '@google/genai';
 
@@ -21,7 +22,9 @@ function getAIClient() {
   return aiClient;
 }
 
-export default async function handler(req: any, res: any) {
+const router = Router();
+
+router.get('/', async (req: any, res: any) => {
   const { query, word } = req.query;
 
   // Single word lookup (exact details)
@@ -94,4 +97,6 @@ export default async function handler(req: any, res: any) {
     count: results.length,
     results
   });
-}
+});
+
+export default router;

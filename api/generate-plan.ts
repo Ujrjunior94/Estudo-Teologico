@@ -1,3 +1,4 @@
+import { Router } from 'express';
 import { GoogleGenAI } from '@google/genai';
 import { BIBLE_BOOKS } from '../src/database/bibleMetadata';
 
@@ -192,11 +193,9 @@ function getOfflineFallbackPlan(theme: string): any {
   return genericPlan;
 }
 
-export default async function handler(req: any, res: any) {
-  if (req.method !== 'POST') {
-    res.setHeader('Allow', ['POST']);
-    return res.status(405).json({ error: 'Method Not Allowed' });
-  }
+const router = Router();
+
+router.post('/', async (req: any, res: any) => {
 
   const { theme } = req.body;
 
@@ -315,4 +314,6 @@ Responda apenas com o JSON válido.`;
     const fallback = getOfflineFallbackPlan(trimmedTheme);
     return res.status(200).json(fallback);
   }
-}
+});
+
+export default router;

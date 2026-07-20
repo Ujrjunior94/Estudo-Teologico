@@ -1,3 +1,4 @@
+import { Router } from 'express';
 import { GoogleGenAI } from '@google/genai';
 import { BIBLE_BOOKS, getChapterVersesCount, getGeneratedVerseText } from '../src/database/bibleMetadata';
 import { DAILY_VERSES } from '../src/database/dailyVerses';
@@ -257,7 +258,9 @@ function findBookInGithubData(bookId: string, githubData: any[]): any | null {
   return null;
 }
 
-export default async function handler(req: any, res: any) {
+const router = Router();
+
+router.get('/', async (req: any, res: any) => {
   const { bookId, chapter, version } = req.query;
 
   if (!bookId || !chapter) {
@@ -403,4 +406,6 @@ Responda apenas com o JSON válido.`;
     verses: fetchedVerses,
     source: responseSource
   });
-}
+});
+
+export default router;

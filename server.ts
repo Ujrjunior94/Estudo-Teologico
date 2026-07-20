@@ -6,59 +6,25 @@ import dotenv from 'dotenv';
 // Load environment variables
 dotenv.config();
 
-// Serverless handler imports
-import chatHandler from './api/chat';
-import verseHandler from './api/verse';
-import dictionaryHandler from './api/dictionary';
-import imageHandler from './api/image';
-import generatePlanHandler from './api/generate-plan';
+// Router imports
+import chatRouter from './api/chat';
+import verseRouter from './api/verse';
+import dictionaryRouter from './api/dictionary';
+import imageRouter from './api/image';
+import generatePlanRouter from './api/generate-plan';
 
 const app = express();
-const PORT = 3000;
+const PORT = Number(process.env.PORT) || 3000;
 
 // Middleware for JSON parsing
 app.use(express.json());
 
-// Serverless Express Adaptor
-function makeExpressAdaptor(handler: any) {
-  return async (req: express.Request, res: express.Response) => {
-    const customReq = {
-      method: req.method,
-      query: req.query,
-      body: req.body,
-      headers: req.headers,
-    };
-    const customRes = {
-      statusCode: 200,
-      status(code: number) {
-        this.statusCode = code;
-        res.status(code);
-        return this;
-      },
-      json(data: any) {
-        res.json(data);
-        return this;
-      },
-      setHeader(name: string, value: any) {
-        res.setHeader(name, value);
-        return this;
-      }
-    };
-    try {
-      await handler(customReq, customRes);
-    } catch (err) {
-      console.error('Erro no adaptador serverless:', err);
-      res.status(500).json({ error: 'Erro interno no processamento do adaptador.' });
-    }
-  };
-}
-
 // Register API Routes
-app.post('/api/chat', makeExpressAdaptor(chatHandler));
-app.get('/api/verse', makeExpressAdaptor(verseHandler));
-app.get('/api/dictionary', makeExpressAdaptor(dictionaryHandler));
-app.post('/api/image', makeExpressAdaptor(imageHandler));
-app.post('/api/generate-plan', makeExpressAdaptor(generatePlanHandler));
+app.use('/api/chat', chatRouter);
+app.use('/api/verse', verseRouter);
+app.use('/api/dictionary', dictionaryRouter);
+app.use('/api/image', imageRouter);
+app.use('/api/generate-plan', generatePlanRouter);
 
 // Dummy endpoints for planner, user, and settings to ensure serverless route mapping
 app.get('/api/planner', (req, res) => {

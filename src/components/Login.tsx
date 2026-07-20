@@ -19,7 +19,8 @@ import {
   signInWithPopup, 
   signInWithEmailAndPassword, 
   createUserWithEmailAndPassword,
-  updateProfile
+  updateProfile,
+  sendPasswordResetEmail
 } from 'firebase/auth';
 import { useRewards } from '../contexts/RewardContext';
 
@@ -34,10 +35,41 @@ export const Login: React.FC<LoginProps> = ({ onContinueOffline }) => {
   const [password, setPassword] = useState('');
   const [displayName, setDisplayName] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  const handleForgotPassword = async () => {
+    if (!email.trim()) {
+      setError('Por favor, informe seu e-mail no campo acima para enviarmos o link de recuperação de senha.');
+      setMessage(null);
+      return;
+    }
+    setError(null);
+    setMessage(null);
+    setLoading(true);
+    try {
+      await sendPasswordResetEmail(auth, email.trim());
+      setMessage('E-mail de recuperação de senha enviado com sucesso! Verifique sua caixa de entrada.');
+      await addXp(10, 'Recuperação de Conta Solicitada 📧');
+    } catch (err: any) {
+      console.error(err);
+      let localizedError = 'Ocorreu um erro ao enviar o e-mail de recuperação de senha.';
+      if (err.code === 'auth/invalid-email') {
+        localizedError = 'Formato de e-mail inválido.';
+      } else if (err.code === 'auth/user-not-found') {
+        localizedError = 'Não encontramos nenhuma conta com este e-mail.';
+      } else if (err.message) {
+        localizedError = err.message;
+      }
+      setError(localizedError);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleGoogleLogin = async () => {
     setError(null);
+    setMessage(null);
     setLoading(true);
     try {
       await signInWithPopup(auth, googleProvider);
@@ -57,6 +89,7 @@ export const Login: React.FC<LoginProps> = ({ onContinueOffline }) => {
   const handleEmailAuthSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    setMessage(null);
     setLoading(true);
 
     try {
@@ -115,8 +148,14 @@ export const Login: React.FC<LoginProps> = ({ onContinueOffline }) => {
         </div>
 
         {error && (
-          <div className="p-3 bg-rose-50 border border-rose-100 text-rose-700 text-xs rounded-xl font-medium">
+          <div className="p-3 bg-rose-50 border border-rose-100 text-rose-700 text-xs rounded-xl font-medium animate-fade-in">
             {error}
+          </div>
+        )}
+
+        {message && (
+          <div className="p-3 bg-emerald-50 border border-emerald-100 text-emerald-800 text-xs rounded-xl font-medium animate-fade-in">
+            {message}
           </div>
         )}
 
@@ -173,7 +212,18 @@ export const Login: React.FC<LoginProps> = ({ onContinueOffline }) => {
             </div>
 
             <div>
-              <label className="block text-[10px] uppercase font-mono font-bold text-slate-400 mb-1">Senha</label>
+              <div className="flex justify-between items-center mb-1">
+                <label className="block text-[10px] uppercase font-mono font-bold text-slate-400">Senha</label>
+                {!isRegister && (
+                  <button
+                    type="button"
+                    onClick={handleForgotPassword}
+                    className="text-[10px] font-semibold text-emerald-600 hover:text-emerald-700 hover:underline cursor-pointer font-sans"
+                  >
+                    Esqueceu a senha?
+                  </button>
+                )}
+              </div>
               <div className="relative flex items-center">
                 <Lock className="absolute left-3.5 text-slate-400" size={14} />
                 <input

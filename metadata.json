@@ -1,5 +1,5 @@
 {
-  "name": "Estudo Bíblico e Teológico PRO",
+  "name": "Determinado",
   "description": "Aplicativo profissional de estudo bíblico e teológico offline-first com inteligência artificial, dicionário teológico, planos de leitura, estúdio criativo e recompensas.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]

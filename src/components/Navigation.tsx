@@ -20,6 +20,7 @@ import {
 import { useRewards } from '../contexts/RewardContext';
 import { auth } from '../services/firebase';
 import { User as FirebaseUser } from 'firebase/auth';
+import { KneelingKnightIcon } from './KneelingKnightIcon';
 
 interface NavigationProps {
   activeTab: string;
@@ -83,12 +84,10 @@ export const Navigation: React.FC<NavigationProps> = ({ activeTab, setActiveTab,
       {/* Sidebar for Desktop */}
       <aside className="hidden md:flex flex-col w-64 bg-slate-900 text-slate-100 h-screen sticky top-0 border-r border-slate-800">
         <div className="p-6 border-b border-slate-800 flex items-center gap-3">
-          <div className="bg-emerald-500 text-slate-950 p-2 rounded-lg font-display font-bold">
-            PRO
-          </div>
+          <KneelingKnightIcon size={42} className="shrink-0 animate-fade-in" />
           <div>
-            <h1 className="font-display font-bold text-sm tracking-tight text-white leading-none">Estudo Bíblico</h1>
-            <span className="text-xs text-slate-400 font-mono">e Teológico PRO</span>
+            <h1 className="font-display font-bold text-base tracking-tight text-white leading-none">Determinado</h1>
+            <span className="text-[10px] text-emerald-400 font-mono font-semibold uppercase tracking-wider">Estudo & Teologia</span>
           </div>
         </div>
 
@@ -176,7 +175,7 @@ export const Navigation: React.FC<NavigationProps> = ({ activeTab, setActiveTab,
             </div>
             <div className="overflow-hidden">
               <p className="text-xs font-medium text-slate-300 truncate">
-                {currentUser ? (currentUser.displayName || 'Usuário Pro') : 'Teólogo PRO'}
+                {currentUser ? (currentUser.displayName || 'Guerreiro Determinado') : 'Determinado'}
               </p>
               <p className="text-[10px] font-mono text-slate-500 truncate">
                 {currentUser ? 'Sincronizado' : 'Membro Offline'}

@@ -162,7 +162,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ setActiveTab, setSelectedB
         ? (verseOfDay.textNVI || verseOfDay.text) 
         : (verseOfDay.textKJV || verseOfDay.text);
         
-    const formatted = `"${text}" — ${verseOfDay.ref} (${activeVersion}) | Estudo Teológico PRO`;
+    const formatted = `"${text}" — ${verseOfDay.ref} (${activeVersion}) | Determinado`;
     navigator.clipboard.writeText(formatted);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
@@ -245,11 +245,11 @@ Mantenha a resposta com profundidade de nível de seminário, mas fácil de ler.
       {/* Welcome Banner */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200 pb-6">
         <div>
-          <h2 className="font-display font-bold text-3xl text-slate-900 tracking-tight">
-            Estudo Teológico PRO
+          <h2 className="font-display font-bold text-3xl text-slate-900 tracking-tight flex items-center gap-2">
+            Determinado
           </h2>
           <p className="text-sm text-slate-500 mt-1">
-            Seu centro teológico de exegese, hermenêutica e acompanhamento offline-first.
+            Seu centro de estudo bíblico, exegese, hermenêutica e reflexão teológica.
           </p>
         </div>
         <div className="flex items-center gap-3 font-mono text-xs text-slate-500 bg-slate-100 px-3 py-1.5 rounded-lg border border-slate-200 self-start md:self-auto">

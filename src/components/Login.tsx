@@ -23,6 +23,7 @@ import {
   sendPasswordResetEmail
 } from 'firebase/auth';
 import { useRewards } from '../contexts/RewardContext';
+import { KneelingKnightIcon } from './KneelingKnightIcon';
 
 interface LoginProps {
   onContinueOffline: () => void;
@@ -134,15 +135,13 @@ export const Login: React.FC<LoginProps> = ({ onContinueOffline }) => {
         <div className="absolute -bottom-10 -left-10 w-32 h-32 bg-teal-500/5 rounded-full blur-2xl" />
 
         <div className="text-center space-y-3 relative z-10">
-          <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-emerald-500 to-teal-600 text-white flex items-center justify-center mx-auto shadow-md shadow-emerald-500/10">
-            <BookOpen size={28} />
-          </div>
+          <KneelingKnightIcon size={64} className="mx-auto drop-shadow-md" />
           <div>
             <h1 className="text-2xl font-display font-black tracking-tight text-slate-900">
-              Bíblia & Teologia <span className="text-emerald-600">PRO</span>
+              Determinado
             </h1>
             <p className="text-xs text-slate-500 mt-1.5 max-w-xs mx-auto">
-              Estudos acadêmicos, dicionário teológico, assistente com IA e sincronização inteligente em tempo real.
+              Estudos bíblicos acadêmicos, dicionário teológico, assistente com IA e sincronização inteligente em tempo real.
             </p>
           </div>
         </div>

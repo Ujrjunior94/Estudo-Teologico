@@ -310,8 +310,8 @@ Responda apenas com o JSON válido.`;
 
     throw new Error('Falha na validação do JSON gerado');
 
-  } catch (err) {
-    console.warn('Erro ao processar plano teológico com IA, gerando fallback exegético local:', err);
+  } catch (err: any) {
+    console.warn('Erro ao processar plano teológico com IA, gerando fallback exegético local:', err.message || err);
     const fallback = getOfflineFallbackPlan(trimmedTheme);
     return res.status(200).json(fallback);
   }

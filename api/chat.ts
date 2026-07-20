@@ -7,7 +7,7 @@ let aiClient: GoogleGenAI | null = null;
 function getAIClient() {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey || apiKey === 'MY_GEMINI_API_KEY') {
-    throw new Error('API_KEY_MISSING');
+    return null;
   }
   if (!aiClient) {
     aiClient = new GoogleGenAI({
@@ -326,6 +326,12 @@ export default async function handler(req: any, res: any) {
   try {
     const ai = getAIClient();
 
+    if (!ai) {
+      console.log('Chave da API do Gemini ausente. Acionando fallback exegético local...');
+      const fallbackText = generateOfflineResponse(messages, option || 'exegese', 'Chave da API do Gemini ausente no painel Secrets');
+      return res.status(200).json({ text: fallbackText });
+    }
+
     // Map system instructions based on theological tools selected (exegese, hermeneutica, devocional, mapa mental)
     let systemInstruction = `Você é o Assistente Teológico IA PRO, um erudito teológico altamente capacitado em línguas originais (hebraico, aramaico, grego), história eclesiástica, arqueologia bíblica e exegese sistemática.
 Seu objetivo é ajudar o usuário a estudar a Bíblia com profundidade acadêmica e sensibilidade espiritual.
@@ -366,7 +372,7 @@ Sempre forneça respostas estruturadas em Markdown, ricas em referências bíbli
     return res.status(200).json({ text });
 
   } catch (err: any) {
-    console.error('Erro no processamento da IA, acionando fallback exegético local:', err);
+    console.warn('Erro no processamento da IA, acionando fallback exegético local:', err.message || err);
 
     let friendlyErrMessage = 'Limite de cota excedido ou instabilidade de rede';
     const errorString = String(err).toLowerCase();

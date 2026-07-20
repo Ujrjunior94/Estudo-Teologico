@@ -1,4 +1,4 @@
-name: CI/CD Pipeline - Estudo Bíblico PRO
+name: CI/CD Pipeline - Determinado
 
 on:
   push:
@@ -28,6 +28,11 @@ jobs:
 
       - name: Install Dependencies
         run: npm install
+
+      - name: Validar variáveis de ambiente
+        run: bash ./scripts/check_env.sh
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
 
       - name: Run Linter (TypeScript Verification)
         run: npm run lint

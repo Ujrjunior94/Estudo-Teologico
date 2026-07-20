@@ -69,9 +69,24 @@ export default async function handler(req: any, res: any) {
 
   } catch (err: any) {
     console.error('Erro na geração de arte por IA:', err);
+    
+    // Friendly, user-safe Portuguese messages depending on the error type
+    let friendlyMessage = 'Serviço temporariamente indisponível. Por favor, tente novamente mais tarde.';
+    const errorString = String(err).toLowerCase();
+    
+    if (errorString.includes('quota') || errorString.includes('limit') || errorString.includes('exhausted')) {
+      friendlyMessage = 'O limite diário de geração de imagens com inteligência artificial foi atingido. Por favor, tente novamente amanhã.';
+    } else if (errorString.includes('key') || errorString.includes('unauthorized') || errorString.includes('not found')) {
+      friendlyMessage = 'A chave da API fornecida parece inválida ou não tem permissão para usar o modelo de imagens.';
+    } else if (errorString.includes('safety') || errorString.includes('blocked')) {
+      friendlyMessage = 'A imagem solicitada não pôde ser gerada devido aos filtros de segurança e sensibilidade do modelo.';
+    } else if (errorString.includes('timeout')) {
+      friendlyMessage = 'O servidor demorou muito para responder. Verifique sua conexão de rede e tente novamente.';
+    }
+
     return res.status(500).json({
       error: 'Falha ao gerar arte teológica por IA.',
-      message: err.message || 'Erro inesperado na geração do ativo.'
+      message: friendlyMessage
     });
   }
 }

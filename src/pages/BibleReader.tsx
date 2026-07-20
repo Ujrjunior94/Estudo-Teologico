@@ -80,7 +80,7 @@ export const BibleReader: React.FC<BibleReaderProps> = ({ selectedBibleRef, setS
   const listRef = useRef<any>(null);
 
   useEffect(() => {
-    if (listRef.current) {
+    if (listRef.current && typeof listRef.current.resetAfterIndex === 'function') {
       listRef.current.resetAfterIndex(0);
     }
   }, [verses, activeVersion]);
@@ -227,7 +227,13 @@ export const BibleReader: React.FC<BibleReaderProps> = ({ selectedBibleRef, setS
     if (b.verse !== undefined) {
       setSelectedVerse(b.verse);
       setTimeout(() => {
-        listRef.current?.scrollToItem(b.verse! - 1, "center");
+        if (listRef.current) {
+          if (typeof listRef.current.scrollToRow === 'function') {
+            listRef.current.scrollToRow({ index: b.verse! - 1, align: 'center' });
+          } else if (typeof listRef.current.scrollToItem === 'function') {
+            listRef.current.scrollToItem(b.verse! - 1, "center");
+          }
+        }
       }, 450);
     } else {
       // Scroll container to saved height

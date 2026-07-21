@@ -36,6 +36,7 @@ export const Login: React.FC<LoginProps> = ({ onContinueOffline }) => {
   const [password, setPassword] = useState('');
   const [displayName, setDisplayName] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [isUnauthorizedDomain, setIsUnauthorizedDomain] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -70,6 +71,7 @@ export const Login: React.FC<LoginProps> = ({ onContinueOffline }) => {
 
   const handleGoogleLogin = async () => {
     setError(null);
+    setIsUnauthorizedDomain(false);
     setMessage(null);
     setLoading(true);
     try {
@@ -77,8 +79,9 @@ export const Login: React.FC<LoginProps> = ({ onContinueOffline }) => {
       await addXp(30, 'Sincronização via Google Iniciada! 🌐');
     } catch (err: any) {
       console.error(err);
-      if (err.code === 'auth/unauthorized-domain') {
-        setError('O login via Google não está configurado para este domínio. Por favor, adicione este domínio no painel do Firebase Authentication ou use login por e-mail.');
+      if (err.code === 'auth/unauthorized-domain' || (err.message && err.message.includes('auth/unauthorized-domain'))) {
+        setIsUnauthorizedDomain(true);
+        setError('O login via Google não está configurado para este domínio.');
       } else if (err.code !== 'auth/popup-closed-by-user') {
         setError('Erro ao autenticar com o Google: ' + (err.message || err));
       }
@@ -90,6 +93,7 @@ export const Login: React.FC<LoginProps> = ({ onContinueOffline }) => {
   const handleEmailAuthSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    setIsUnauthorizedDomain(false);
     setMessage(null);
     setLoading(true);
 
@@ -147,9 +151,53 @@ export const Login: React.FC<LoginProps> = ({ onContinueOffline }) => {
         </div>
 
         {error && (
-          <div className="p-3 bg-rose-50 border border-rose-100 text-rose-700 text-xs rounded-xl font-medium animate-fade-in">
-            {error}
-          </div>
+          isUnauthorizedDomain ? (
+            <div className="p-4 bg-amber-50 border border-amber-200 text-amber-900 text-xs rounded-2xl font-medium animate-fade-in space-y-3 shadow-sm">
+              <div className="flex items-start gap-2 text-amber-800">
+                <Globe className="w-4 h-4 mt-0.5 shrink-0" />
+                <div>
+                  <p className="font-bold text-sm">Domínio Não Autorizado no Firebase</p>
+                  <p className="text-[11px] mt-0.5 text-amber-700">O Google Sign-In precisa que o domínio deste preview seja registrado nas configurações de autenticação do seu projeto Firebase.</p>
+                </div>
+              </div>
+              
+              <div className="bg-white/80 border border-amber-200/60 rounded-xl p-2.5 space-y-2">
+                <p className="text-[10px] uppercase font-mono font-bold text-amber-800">Copie o domínio atual:</p>
+                <div className="flex items-center justify-between gap-2 bg-amber-100/50 hover:bg-amber-100 px-2 py-1.5 rounded text-mono text-[11px] font-semibold text-amber-900">
+                  <span className="truncate select-all">{typeof window !== 'undefined' ? window.location.hostname : 'domain'}</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (typeof window !== 'undefined') {
+                        navigator.clipboard.writeText(window.location.hostname);
+                      }
+                    }}
+                    className="text-[10px] text-amber-700 hover:text-amber-900 font-bold hover:underline cursor-pointer shrink-0"
+                  >
+                    Copiar
+                  </button>
+                </div>
+              </div>
+
+              <div className="text-[11px] text-amber-800 space-y-1">
+                <p className="font-bold">Como resolver em 1 minuto:</p>
+                <ol className="list-decimal pl-4 space-y-1.5">
+                  <li>Acesse o <a href="https://console.firebase.google.com/" target="_blank" rel="noopener noreferrer" className="underline font-bold text-amber-950">Console do Firebase</a></li>
+                  <li>Abra o projeto <span className="font-mono bg-amber-100 px-1 rounded text-[10px]">estudo-teologico001</span></li>
+                  <li>Vá em <strong>Authentication</strong> &rarr; aba <strong>Settings</strong> &rarr; <strong>Authorized domains</strong></li>
+                  <li>Clique em <strong>Add domain</strong>, cole o domínio acima e salve.</li>
+                </ol>
+              </div>
+
+              <div className="text-[10px] text-amber-700 border-t border-amber-200/60 pt-2 text-center">
+                Dica: Você também pode usar o <span className="font-bold">E-mail / Senha</span> abaixo para entrar imediatamente!
+              </div>
+            </div>
+          ) : (
+            <div className="p-3 bg-rose-50 border border-rose-100 text-rose-700 text-xs rounded-xl font-medium animate-fade-in">
+              {error}
+            </div>
+          )
         )}
 
         {message && (

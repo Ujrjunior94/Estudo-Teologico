@@ -142,7 +142,7 @@ export const Profile: React.FC = () => {
       console.error(err);
       if (err.code !== 'auth/popup-closed-by-user') {
         if (err.code === 'auth/unauthorized-domain' || (err.message && err.message.includes('auth/unauthorized-domain'))) {
-          setError('Domínio não autorizado no Firebase Auth! Para solucionar, este domínio do aplicativo preview precisa ser adicionado como um domínio autorizado na seção de Autenticação do Console do Firebase. Solicite a reconfiguração do Firebase no chat ou adicione manualmente os domínios do preview (ais-dev-... e ais-pre-...) no console do Firebase.');
+          setError('Domínio não autorizado no Firebase Auth! (auth/unauthorized-domain) Para solucionar, este domínio do aplicativo preview precisa ser adicionado como um domínio autorizado na seção de Autenticação do Console do Firebase.');
         } else {
           setError('Falha ao autenticar com o Google: ' + (err.message || err));
         }
@@ -324,11 +324,25 @@ export const Profile: React.FC = () => {
           {error.includes('auth/unauthorized-domain') && (
             <div className="mt-2 p-4 bg-white/80 border border-rose-100 rounded-xl space-y-3 text-xs text-rose-950">
               <p className="font-semibold text-rose-900">Como resolver no Firebase Console:</p>
-              <ol className="list-decimal pl-4 space-y-1.5">
+              <ol className="list-decimal pl-4 space-y-2">
                 <li>Acesse o <a href="https://console.firebase.google.com" target="_blank" rel="noopener noreferrer" className="font-bold text-emerald-600 hover:underline underline">Console do Firebase</a>.</li>
-                <li>Selecione seu projeto Firebase atual.</li>
+                <li>Selecione o projeto <span className="font-mono bg-slate-100 px-1 py-0.5 rounded text-[11px] font-bold">estudo-teologico001</span>.</li>
                 <li>Vá em <span className="font-semibold">Authentication &gt; Configurações (Settings) &gt; Domínios Autorizados</span>.</li>
-                <li>Clique em <span className="font-semibold">"Adicionar domínio"</span> e insira: <span className="font-mono bg-rose-100 px-1 py-0.5 rounded font-bold select-all">{window.location.hostname}</span>.</li>
+                <li>
+                  Clique em <span className="font-semibold">"Adicionar domínio"</span> e insira o domínio deste preview atual:
+                  <div className="flex items-center gap-2 mt-1 bg-rose-50/50 border border-rose-100 rounded-lg p-2 max-w-sm">
+                    <span className="font-mono text-[11px] font-bold text-rose-950 truncate select-all">{window.location.hostname}</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        navigator.clipboard.writeText(window.location.hostname);
+                      }}
+                      className="ml-auto text-[10px] bg-rose-100 hover:bg-rose-200 text-rose-900 font-bold px-2 py-1 rounded transition cursor-pointer"
+                    >
+                      Copiar Domínio
+                    </button>
+                  </div>
+                </li>
               </ol>
               <div className="border-t border-rose-200/50 pt-2.5 mt-2 flex flex-col gap-1.5">
                 <p className="font-bold text-emerald-700">💡 Alternativa Imediata:</p>

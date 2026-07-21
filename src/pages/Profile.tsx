@@ -18,7 +18,10 @@ import {
   LogIn, 
   KeyRound, 
   UserCheck,
-  Palette
+  Palette,
+  Database,
+  Upload,
+  Download
 } from 'lucide-react';
 import { auth, syncAllData, registerSyncStatusListener } from '../services/firebase';
 import { 
@@ -35,6 +38,7 @@ import {
 import { useRewards } from '../contexts/RewardContext';
 import { SYSTEM_BADGES } from '../constants';
 import { useTheme } from '../contexts/ThemeContext';
+import { exportStudyDataToJSON, importStudyDataFromJSON } from '../utils';
 
 export const Profile: React.FC = () => {
   const { theme, setTheme, themes, themeConfig } = useTheme();
@@ -137,7 +141,11 @@ export const Profile: React.FC = () => {
     } catch (err: any) {
       console.error(err);
       if (err.code !== 'auth/popup-closed-by-user') {
-        setError('Falha ao autenticar com o Google: ' + (err.message || err));
+        if (err.code === 'auth/unauthorized-domain' || (err.message && err.message.includes('auth/unauthorized-domain'))) {
+          setError('Domínio não autorizado no Firebase Auth! Para solucionar, este domínio do aplicativo preview precisa ser adicionado como um domínio autorizado na seção de Autenticação do Console do Firebase. Solicite a reconfiguração do Firebase no chat ou adicione manualmente os domínios do preview (ais-dev-... e ais-pre-...) no console do Firebase.');
+        } else {
+          setError('Falha ao autenticar com o Google: ' + (err.message || err));
+        }
       }
     } finally {
       setLoading(false);
@@ -305,12 +313,31 @@ export const Profile: React.FC = () => {
       </div>
 
       {error && (
-        <div className="mb-6 p-4 bg-rose-50 border border-rose-200 text-rose-950 rounded-2xl flex items-start gap-3 text-sm font-sans animate-fade-in shadow-sm">
-          <AlertCircle size={18} className="text-rose-600 shrink-0 mt-0.5" />
-          <div>
-            <span className="font-bold">Atenção: </span>
-            <span>{error}</span>
+        <div className="mb-6 p-4 bg-rose-50 border border-rose-200 text-rose-950 rounded-2xl flex flex-col gap-2.5 text-sm font-sans animate-fade-in shadow-sm animate-fade-in">
+          <div className="flex items-start gap-3">
+            <AlertCircle size={18} className="text-rose-600 shrink-0 mt-0.5" />
+            <div>
+              <span className="font-bold">Atenção: </span>
+              <span>{error}</span>
+            </div>
           </div>
+          {error.includes('auth/unauthorized-domain') && (
+            <div className="mt-2 p-4 bg-white/80 border border-rose-100 rounded-xl space-y-3 text-xs text-rose-950">
+              <p className="font-semibold text-rose-900">Como resolver no Firebase Console:</p>
+              <ol className="list-decimal pl-4 space-y-1.5">
+                <li>Acesse o <a href="https://console.firebase.google.com" target="_blank" rel="noopener noreferrer" className="font-bold text-emerald-600 hover:underline underline">Console do Firebase</a>.</li>
+                <li>Selecione seu projeto Firebase atual.</li>
+                <li>Vá em <span className="font-semibold">Authentication &gt; Configurações (Settings) &gt; Domínios Autorizados</span>.</li>
+                <li>Clique em <span className="font-semibold">"Adicionar domínio"</span> e insira: <span className="font-mono bg-rose-100 px-1 py-0.5 rounded font-bold select-all">{window.location.hostname}</span>.</li>
+              </ol>
+              <div className="border-t border-rose-200/50 pt-2.5 mt-2 flex flex-col gap-1.5">
+                <p className="font-bold text-emerald-700">💡 Alternativa Imediata:</p>
+                <p className="text-slate-700 leading-relaxed">
+                  Para testar e utilizar o aplicativo de forma instantânea sem precisar configurar domínios agora, use o método de <strong>E-mail e Senha</strong> logo abaixo! Basta clicar em <strong>"Cadastre-se grátis"</strong> se ainda não tiver uma conta local.
+                </p>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -415,6 +442,76 @@ export const Profile: React.FC = () => {
                 <p className="text-[10px] text-slate-400 leading-normal text-center">
                   Suas anotações, favoritos, marcadores e progresso são sincronizados automaticamente em segundo plano.
                 </p>
+              </div>
+            </div>
+
+            {/* Physical Offline Backup Card */}
+            <div className={`rounded-3xl border p-6 shadow-sm transition-all duration-300 ${themeConfig.card}`}>
+              <h3 className={`text-sm font-bold mb-4 flex items-center gap-2 transition-colors duration-300 ${themeConfig.isDark ? 'text-white' : 'text-slate-900'}`}>
+                <Database size={16} className="text-emerald-500" />
+                Backup Físico de Estudos
+              </h3>
+
+              <div className="space-y-4">
+                <p className={`text-[11px] leading-normal transition-colors duration-300 ${themeConfig.isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                  Exporte ou restaure suas anotações, destaques, favoritos, marcadores e preces em um arquivo JSON local.
+                </p>
+
+                <button
+                  onClick={async () => {
+                    try {
+                      setError(null);
+                      setSuccess(null);
+                      await exportStudyDataToJSON();
+                      setSuccess('Exportação concluída! Seu arquivo de backup físico foi salvo.');
+                    } catch (err: any) {
+                      setError('Falha ao exportar backup: ' + err.message);
+                    }
+                  }}
+                  className="w-full flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold py-3 rounded-2xl transition shadow-sm hover:scale-[1.02] active:scale-95 cursor-pointer"
+                >
+                  <Download size={14} />
+                  Exportar Backup (JSON)
+                </button>
+
+                <div className="relative">
+                  <input
+                    type="file"
+                    accept=".json"
+                    id="import-backup-file-input"
+                    className="hidden"
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      
+                      setError(null);
+                      setSuccess(null);
+                      
+                      const reader = new FileReader();
+                      reader.onload = async (event) => {
+                        try {
+                          const result = event.target?.result as string;
+                          const counts = await importStudyDataFromJSON(result);
+                          setSuccess(`Backup importado com sucesso! Restaurado: ${counts.notesCount} anotações, ${counts.highlightsCount} destaques, ${counts.favoritesCount} favoritos, ${counts.bookmarksCount} marcadores, ${counts.prayersCount} orações.`);
+                          // Trigger cloud sync if logged in to upload imported items
+                          if (currentUser) {
+                            syncAllData(currentUser.uid).catch(err => console.warn('Silent sync after backup import failed:', err));
+                          }
+                        } catch (err: any) {
+                          setError('Erro ao importar backup. Certifique-se de que é um arquivo JSON válido gerado por este aplicativo.');
+                        }
+                      };
+                      reader.readAsText(file);
+                    }}
+                  />
+                  <label
+                    htmlFor="import-backup-file-input"
+                    className="w-full flex items-center justify-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-700 hover:text-slate-800 text-xs font-bold py-3 rounded-2xl transition shadow-sm hover:scale-[1.02] active:scale-95 cursor-pointer border border-dashed border-slate-300 text-center block"
+                  >
+                    <Upload size={14} />
+                    Importar Backup (JSON)
+                  </label>
+                </div>
               </div>
             </div>
           </div>

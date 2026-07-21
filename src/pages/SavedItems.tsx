@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { dbService } from '../database/db';
 import { Note, Favorite } from '../types';
 import { useRewards } from '../contexts/RewardContext';
-import { exportToMarkdown } from '../utils';
+import { exportToMarkdown, exportStudyDataToJSON, importStudyDataFromJSON } from '../utils';
 import { 
   FolderHeart, 
   Trash2, 
@@ -15,7 +15,9 @@ import {
   FileText,
   Search,
   CheckCircle,
-  X
+  X,
+  Upload,
+  Database
 } from 'lucide-react';
 
 interface SavedItemsProps {
@@ -39,6 +41,10 @@ export const SavedItems: React.FC<SavedItemsProps> = ({ setActiveTab, setSelecte
   const [editTitle, setEditTitle] = useState('');
   const [editContent, setEditContent] = useState('');
   const [editCategory, setEditCategory] = useState('');
+
+  // Backup notifications state
+  const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   useEffect(() => {
     loadData();
@@ -149,6 +155,105 @@ export const SavedItems: React.FC<SavedItemsProps> = ({ setActiveTab, setSelecte
             className="w-full bg-slate-50 border border-slate-200 rounded-xl py-1.5 px-3 pl-9 text-xs focus:outline-none focus:ring-1 focus:ring-emerald-500"
           />
           <Search size={14} className="absolute left-3 top-2.5 text-slate-400" />
+        </div>
+      </div>
+
+      {successMsg && (
+        <div className="p-4 bg-emerald-50 border border-emerald-200 text-emerald-950 rounded-2xl flex items-start justify-between gap-3 text-xs font-sans animate-fade-in shadow-sm">
+          <div className="flex items-start gap-3">
+            <CheckCircle size={16} className="text-emerald-600 shrink-0 mt-0.5" />
+            <div>
+              <span className="font-bold">Sucesso! </span>
+              <span>{successMsg}</span>
+            </div>
+          </div>
+          <button onClick={() => setSuccessMsg(null)} className="text-emerald-600 hover:text-emerald-800 cursor-pointer">
+            <X size={14} />
+          </button>
+        </div>
+      )}
+
+      {errorMsg && (
+        <div className="p-4 bg-rose-50 border border-rose-200 text-rose-950 rounded-2xl flex items-start justify-between gap-3 text-xs font-sans animate-fade-in shadow-sm">
+          <div className="flex items-start gap-3">
+            <X size={16} className="text-rose-600 shrink-0 mt-0.5" />
+            <div>
+              <span className="font-bold">Atenção: </span>
+              <span>{errorMsg}</span>
+            </div>
+          </div>
+          <button onClick={() => setErrorMsg(null)} className="text-rose-600 hover:text-rose-800 cursor-pointer">
+            <X size={14} />
+          </button>
+        </div>
+      )}
+
+      {/* Backup Físico Local bar */}
+      <div className="bg-slate-50 border border-slate-200 rounded-3xl p-5 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 shadow-sm">
+        <div className="flex gap-3.5 items-center">
+          <div className="p-2.5 bg-emerald-50 text-emerald-700 border border-emerald-100 rounded-2xl shadow-sm">
+            <Database size={20} />
+          </div>
+          <div>
+            <h4 className="text-sm font-bold text-slate-800">Backup de Estudos Físico (JSON)</h4>
+            <p className="text-xs text-slate-500 mt-0.5 leading-normal">
+              Salve localmente todas as suas anotações, destaques, favoritos, marcadores e preces, ou restaure um backup existente.
+            </p>
+          </div>
+        </div>
+        <div className="flex gap-3 w-full md:w-auto">
+          <button
+            onClick={async () => {
+              try {
+                setSuccessMsg(null);
+                setErrorMsg(null);
+                await exportStudyDataToJSON();
+                setSuccessMsg('Seu backup físico local foi gerado e baixado com sucesso!');
+              } catch (err: any) {
+                setErrorMsg('Falha ao exportar backup: ' + err.message);
+              }
+            }}
+            className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold py-3 px-5 rounded-2xl transition shadow-sm hover:scale-[1.02] active:scale-95 cursor-pointer"
+          >
+            <Download size={14} />
+            Exportar JSON
+          </button>
+          
+          <div className="relative flex-1 md:flex-none">
+            <input
+              type="file"
+              accept=".json"
+              id="import-backup-saved-items"
+              className="hidden"
+              onChange={async (e) => {
+                const file = e.target.files?.[0];
+                if (!file) return;
+                
+                setSuccessMsg(null);
+                setErrorMsg(null);
+                
+                const reader = new FileReader();
+                reader.onload = async (event) => {
+                  try {
+                    const result = event.target?.result as string;
+                    const counts = await importStudyDataFromJSON(result);
+                    setSuccessMsg(`Backup importado com sucesso! Foram restaurados: ${counts.notesCount} anotações, ${counts.highlightsCount} destaques de versículos, ${counts.favoritesCount} versículos favoritos, ${counts.bookmarksCount} marcadores e ${counts.prayersCount} orações.`);
+                    loadData();
+                  } catch (err: any) {
+                    setErrorMsg('Erro ao importar backup. Verifique se o arquivo JSON é válido e foi gerado por este aplicativo.');
+                  }
+                };
+                reader.readAsText(file);
+              }}
+            />
+            <label
+              htmlFor="import-backup-saved-items"
+              className="w-full flex items-center justify-center gap-2 bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold py-3 px-5 rounded-2xl border border-slate-200 transition shadow-sm hover:scale-[1.02] active:scale-95 cursor-pointer text-center block"
+            >
+              <Upload size={14} />
+              Importar JSON
+            </label>
+          </div>
         </div>
       </div>
 

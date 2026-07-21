@@ -1,4 +1,6 @@
 // Utility functions for Estudo Bíblico e Teológico PRO
+import { dbService } from '../database/db';
+import { Note, Highlight, Favorite, Bookmark, PrayerRequest } from '../types';
 
 // Format a date in Brazilian Portuguese
 export function formatDate(isoString: string): string {
@@ -371,4 +373,121 @@ export function exportCanvasAsPNG(
 
     draw();
   });
+}
+
+/**
+ * Exports all user study data (notes, highlights, favorites, bookmarks, prayers)
+ * to a local physical JSON file as a secure offline backup.
+ */
+export async function exportStudyDataToJSON(): Promise<void> {
+  try {
+    const notes = await dbService.getNotes();
+    const highlights = await dbService.getHighlights();
+    const favorites = await dbService.getFavorites();
+    const bookmarks = await dbService.getBookmarks();
+    const prayers = await dbService.getPrayers();
+
+    const backupData = {
+      notes,
+      highlights,
+      favorites,
+      bookmarks,
+      prayers,
+      backupDate: new Date().toISOString(),
+      appName: 'Estudo Bíblico e Teológico PRO',
+      version: '1.0'
+    };
+
+    const jsonString = JSON.stringify(backupData, null, 2);
+    const blob = new Blob([jsonString], { type: 'application/json;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    
+    const dateStr = new Date().toISOString().split('T')[0];
+    link.setAttribute('download', `backup_estudos_teologicos_${dateStr}.json`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  } catch (error) {
+    console.error('Erro ao exportar backup:', error);
+    throw error;
+  }
+}
+
+/**
+ * Imports and merges study data from a local physical backup JSON file
+ * back into the local IndexedDB database.
+ */
+export async function importStudyDataFromJSON(jsonString: string): Promise<{
+  notesCount: number;
+  highlightsCount: number;
+  favoritesCount: number;
+  bookmarksCount: number;
+  prayersCount: number;
+}> {
+  try {
+    const data = JSON.parse(jsonString);
+    
+    // Simple validation
+    if (!data || typeof data !== 'object') {
+      throw new Error('Arquivo de backup inválido.');
+    }
+
+    const notes: Note[] = Array.isArray(data.notes) ? data.notes : [];
+    const highlights: Highlight[] = Array.isArray(data.highlights) ? data.highlights : [];
+    const favorites: Favorite[] = Array.isArray(data.favorites) ? data.favorites : [];
+    const bookmarks: Bookmark[] = Array.isArray(data.bookmarks) ? data.bookmarks : [];
+    const prayers: PrayerRequest[] = Array.isArray(data.prayers) ? data.prayers : [];
+
+    // Let's import Notes
+    for (const note of notes) {
+      if (note && note.id) {
+        await dbService.saveNote(note);
+      }
+    }
+
+    // Let's import Highlights
+    for (const hl of highlights) {
+      if (hl && hl.id) {
+        await dbService.saveHighlight(hl);
+      }
+    }
+
+    // Let's import Favorites
+    for (const fav of favorites) {
+      if (fav && fav.id) {
+        await dbService.saveFavorite(fav);
+      }
+    }
+
+    // Let's import Bookmarks
+    for (const bookmark of bookmarks) {
+      if (bookmark && bookmark.id) {
+        await dbService.saveBookmark(bookmark);
+      }
+    }
+
+    // Let's import Prayers
+    for (const prayer of prayers) {
+      if (prayer && prayer.id) {
+        await dbService.savePrayer(prayer);
+      }
+    }
+
+    // Dispatch custom event to notify components to refresh
+    window.dispatchEvent(new CustomEvent('db-update', { detail: { type: 'all' } }));
+
+    return {
+      notesCount: notes.length,
+      highlightsCount: highlights.length,
+      favoritesCount: favorites.length,
+      bookmarksCount: bookmarks.length,
+      prayersCount: prayers.length
+    };
+  } catch (error) {
+    console.error('Erro ao importar backup:', error);
+    throw error;
+  }
 }

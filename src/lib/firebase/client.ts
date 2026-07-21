@@ -9,49 +9,49 @@ export const firebaseConfig = {
           (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_FIREBASE_API_KEY) || 
           (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_FIREBASE_API_KEY) ||
           (typeof process !== 'undefined' && process.env?.VITE_FIREBASE_API_KEY) ||
-          "AIzaSyDu4aGG5w7VKzl99YA4k3w_sEQJ8nKfZbA",
+          "AIzaSyBi8m7l2UTZmNZe2iQITlFrBVzv18Hc01U",
 
   authDomain: (typeof import.meta !== 'undefined' && (import.meta as any).env?.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN) || 
               (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_FIREBASE_AUTH_DOMAIN) || 
               (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN) ||
               (typeof process !== 'undefined' && process.env?.VITE_FIREBASE_AUTH_DOMAIN) ||
-              "gen-lang-client-0167985385.firebaseapp.com",
+              "estudo-teologico001.firebaseapp.com",
 
   projectId: (typeof import.meta !== 'undefined' && (import.meta as any).env?.NEXT_PUBLIC_FIREBASE_PROJECT_ID) || 
              (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_FIREBASE_PROJECT_ID) || 
              (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_FIREBASE_PROJECT_ID) ||
              (typeof process !== 'undefined' && process.env?.VITE_FIREBASE_PROJECT_ID) ||
-             "gen-lang-client-0167985385",
+             "estudo-teologico001",
 
   storageBucket: (typeof import.meta !== 'undefined' && (import.meta as any).env?.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET) || 
-                 (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_FIREBASE_STORAGE_BUCKET) || 
-                 (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET) ||
-                 (typeof process !== 'undefined' && process.env?.VITE_FIREBASE_STORAGE_BUCKET) ||
-                 "gen-lang-client-0167985385.firebasestorage.app",
+                  (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_FIREBASE_STORAGE_BUCKET) || 
+                  (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET) ||
+                  (typeof process !== 'undefined' && process.env?.VITE_FIREBASE_STORAGE_BUCKET) ||
+                  "estudo-teologico001.firebasestorage.app",
 
   messagingSenderId: (typeof import.meta !== 'undefined' && (import.meta as any).env?.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID) || 
                       (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_FIREBASE_MESSAGING_SENDER_ID) || 
                       (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID) ||
                       (typeof process !== 'undefined' && process.env?.VITE_FIREBASE_MESSAGING_SENDER_ID) ||
-                      "710269410392",
+                      "612570871474",
 
   appId: (typeof import.meta !== 'undefined' && (import.meta as any).env?.NEXT_PUBLIC_FIREBASE_APP_ID) || 
          (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_FIREBASE_APP_ID) || 
          (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_FIREBASE_APP_ID) ||
          (typeof process !== 'undefined' && process.env?.VITE_FIREBASE_APP_ID) ||
-         "1:710269410392:web:a26f36e79c3db99e5cbe2d",
+         "1:612570871474:web:f2d6c9f43f8d610da7bbab",
 
   measurementId: (typeof import.meta !== 'undefined' && (import.meta as any).env?.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID) || 
                   (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_FIREBASE_MEASUREMENT_ID) || 
                   (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID) ||
                   (typeof process !== 'undefined' && process.env?.VITE_FIREBASE_MEASUREMENT_ID) ||
-                  "",
+                  "G-RTKC6DY6ZN",
 
   firestoreDatabaseId: (typeof import.meta !== 'undefined' && (import.meta as any).env?.NEXT_PUBLIC_FIREBASE_FIRESTORE_DATABASE_ID) || 
                         (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_FIREBASE_FIRESTORE_DATABASE_ID) || 
                         (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_FIREBASE_FIRESTORE_DATABASE_ID) ||
                         (typeof process !== 'undefined' && process.env?.VITE_FIREBASE_FIRESTORE_DATABASE_ID) ||
-                        "ai-studio-bibletheologypro-0095cf70-1f02-42e2-9e42-51561c4671b3",
+                        "(default)",
 };
 
 // Singleton initialization pattern

@@ -27,7 +27,7 @@ jobs:
           cache: 'npm'
 
       - name: Install Dependencies
-        run: npm install
+        run: npm ci
 
       - name: Validar variáveis de ambiente
         run: bash ./scripts/check_env.sh

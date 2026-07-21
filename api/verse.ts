@@ -322,7 +322,7 @@ Exemplo de formato:
 Responda apenas com o JSON válido.`;
 
         const aiPromise = ai.models.generateContent({
-          model: 'gemini-3.5-flash',
+          model: 'gemini-2.5-flash',
           contents: [prompt],
           config: {
             responseMimeType: 'application/json',

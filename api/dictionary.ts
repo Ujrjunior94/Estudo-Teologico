@@ -46,7 +46,7 @@ export default async function handler(req: any, res: any) {
     if (ai) {
       try {
         const response = await ai.models.generateContent({
-          model: 'gemini-3.5-flash',
+          model: 'gemini-2.5-flash',
           contents: `Forneça os detalhes teológicos acadêmicos para a palavra: "${word}".`,
           config: {
             systemInstruction: `Você é um dicionário teológico exaustivo. Responda em formato JSON válido que siga o seguinte esquema exato:

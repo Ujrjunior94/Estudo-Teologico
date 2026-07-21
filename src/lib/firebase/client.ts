@@ -1,6 +1,6 @@
 import { initializeApp, getApp, getApps } from 'firebase/app';
 import { getAuth, GoogleAuthProvider } from 'firebase/auth';
-import { initializeFirestore, setLogLevel } from 'firebase/firestore';
+import { initializeFirestore, getFirestore, setLogLevel } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 
 // Config resolved statically from Env (enabling Vite compile-time replacement), prioritizing NEXT_PUBLIC_FIREBASE_*
@@ -65,8 +65,20 @@ googleProvider.addScope('profile');
 
 // Suppress normal offline logging warnings & initialize db
 setLogLevel('error');
-export const db = initializeFirestore(app, {
-  experimentalForceLongPolling: true,
-}, firebaseConfig.firestoreDatabaseId);
+const customDbId = firebaseConfig.firestoreDatabaseId && firebaseConfig.firestoreDatabaseId !== '(default)' 
+  ? firebaseConfig.firestoreDatabaseId 
+  : undefined;
+
+function getFirestoreInstance() {
+  try {
+    return customDbId 
+      ? initializeFirestore(app, { experimentalForceLongPolling: true }, customDbId)
+      : initializeFirestore(app, { experimentalForceLongPolling: true });
+  } catch {
+    return customDbId ? getFirestore(app, customDbId) : getFirestore(app);
+  }
+}
+
+export const db = getFirestoreInstance();
 
 export const storage = getStorage(app);

@@ -193,11 +193,21 @@ function getOfflineFallbackPlan(theme: string): any {
   return genericPlan;
 }
 
-const router = Router();
+export default async function handler(req: any, res: any) {
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
 
-router.post('/', async (req: any, res: any) => {
+  let body = req.body;
+  if (typeof body === 'string' && body.trim().length > 0) {
+    try {
+      body = JSON.parse(body);
+    } catch {
+      // Keep original body
+    }
+  }
 
-  const { theme } = req.body;
+  const { theme } = body || {};
 
   if (!theme || typeof theme !== 'string' || theme.trim().length === 0) {
     return res.status(400).json({ error: 'O tema teológico é obrigatório.' });
@@ -314,6 +324,4 @@ Responda apenas com o JSON válido.`;
     const fallback = getOfflineFallbackPlan(trimmedTheme);
     return res.status(200).json(fallback);
   }
-});
-
-export default router;
+}

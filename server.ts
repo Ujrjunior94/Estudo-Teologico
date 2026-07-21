@@ -6,12 +6,12 @@ import dotenv from 'dotenv';
 // Load environment variables
 dotenv.config();
 
-// Router imports
-import chatRouter from './api/chat';
-import verseRouter from './api/verse';
-import dictionaryRouter from './api/dictionary';
-import imageRouter from './api/image';
-import generatePlanRouter from './api/generate-plan';
+// Handler imports
+import chatHandler from './api/chat';
+import verseHandler from './api/verse';
+import dictionaryHandler from './api/dictionary';
+import imageHandler from './api/image';
+import generatePlanHandler from './api/generate-plan';
 
 const app = express();
 const PORT = Number(process.env.PORT) || 3000;
@@ -20,11 +20,11 @@ const PORT = Number(process.env.PORT) || 3000;
 app.use(express.json());
 
 // Register API Routes
-app.use('/api/chat', chatRouter);
-app.use('/api/verse', verseRouter);
-app.use('/api/dictionary', dictionaryRouter);
-app.use('/api/image', imageRouter);
-app.use('/api/generate-plan', generatePlanRouter);
+app.all('/api/chat', chatHandler);
+app.all('/api/verse', verseHandler);
+app.all('/api/dictionary', dictionaryHandler);
+app.all('/api/image', imageHandler);
+app.all('/api/generate-plan', generatePlanHandler);
 
 // Dummy endpoints for planner, user, and settings to ensure serverless route mapping
 app.get('/api/planner', (req, res) => {

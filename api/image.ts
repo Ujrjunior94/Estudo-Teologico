@@ -21,10 +21,21 @@ function getAIClient() {
   return aiClient;
 }
 
-const router = Router();
+export default async function handler(req: any, res: any) {
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
 
-router.post('/', async (req: any, res: any) => {
-  const { prompt, aspectRatio } = req.body;
+  let body = req.body;
+  if (typeof body === 'string' && body.trim().length > 0) {
+    try {
+      body = JSON.parse(body);
+    } catch {
+      // Keep original body
+    }
+  }
+
+  const { prompt, aspectRatio } = body || {};
 
   if (!prompt) {
     return res.status(400).json({ error: 'Parâmetro "prompt" é obrigatório.' });
@@ -87,6 +98,4 @@ router.post('/', async (req: any, res: any) => {
       message: friendlyMessage
     });
   }
-});
-
-export default router;
+}

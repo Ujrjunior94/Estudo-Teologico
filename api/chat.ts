@@ -311,10 +311,21 @@ ${topicBody}
 *Estudo offline de alta fidelidade elaborado para apoiar e enriquecer suas pesquisas teológicas sistemáticas diárias.*`;
 }
 
-const router = Router();
+export default async function handler(req: any, res: any) {
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
 
-router.post('/', async (req: any, res: any) => {
-  const { messages, option } = req.body;
+  let body = req.body;
+  if (typeof body === 'string' && body.trim().length > 0) {
+    try {
+      body = JSON.parse(body);
+    } catch {
+      // Keep original body
+    }
+  }
+
+  const { messages, option } = body || {};
 
   if (!messages || !Array.isArray(messages)) {
     return res.status(400).json({ error: 'Parâmetro "messages" inválido ou ausente.' });
@@ -330,7 +341,7 @@ router.post('/', async (req: any, res: any) => {
     }
 
     // Map system instructions based on theological tools selected (exegese, hermeneutica, devocional, mapa mental)
-    let systemInstruction = `Você é o Assistente Teológico IA PRO, um erudito teológico altamente capacitado em línguas originais (hebraico, aramaico, grego), história eclesiástica, arqueologia bíblica e exegese sistemática.
+    let systemInstruction = `Você é o Assistente Teológico IA PRO, um erudito teológico highly capacitado em línguas originais (hebraico, aramaico, grego), história eclesiástica, arqueologia bíblica e exegese sistemática.
 Seu objetivo é ajudar o usuário a estudar a Bíblia com profundidade acadêmica e sensibilidade espiritual.
 Sempre forneça respostas estruturadas em Markdown, ricas em referências bíblicas e com insights teológicos históricos.`;
 
@@ -390,6 +401,4 @@ Sempre forneça respostas estruturadas em Markdown, ricas em referências bíbli
     const fallbackText = generateOfflineResponse(messages, option || 'exegese', friendlyErrMessage);
     return res.status(200).json({ text: fallbackText });
   }
-});
-
-export default router;
+}

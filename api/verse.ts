@@ -258,10 +258,13 @@ function findBookInGithubData(bookId: string, githubData: any[]): any | null {
   return null;
 }
 
-const router = Router();
+export default async function handler(req: any, res: any) {
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
 
-router.get('/', async (req: any, res: any) => {
-  const { bookId, chapter, version } = req.query;
+  const query = req.query || {};
+  const { bookId, chapter, version } = query;
 
   if (!bookId || !chapter) {
     return res.status(400).json({ error: 'Parâmetros "bookId" e "chapter" são obrigatórios.' });
@@ -406,6 +409,4 @@ Responda apenas com o JSON válido.`;
     verses: fetchedVerses,
     source: responseSource
   });
-});
-
-export default router;
+}

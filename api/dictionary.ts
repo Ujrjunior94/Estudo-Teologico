@@ -22,10 +22,13 @@ function getAIClient() {
   return aiClient;
 }
 
-const router = Router();
+export default async function handler(req: any, res: any) {
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
 
-router.get('/', async (req: any, res: any) => {
-  const { query, word } = req.query;
+  const queryParams = req.query || {};
+  const { query, word } = queryParams;
 
   // Single word lookup (exact details)
   if (word) {
@@ -97,6 +100,4 @@ router.get('/', async (req: any, res: any) => {
     count: results.length,
     results
   });
-});
-
-export default router;
+}
